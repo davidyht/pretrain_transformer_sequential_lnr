@@ -1,0 +1,127 @@
+import numpy as np
+import torch
+from ctrls.ctrl_bandit import Controller
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+class OptCgPolicy(Controller):
+    def __init__(self, env, batch_size):
+        super().__init__()
+        self.env = env
+        self.batch_size = batch_size
+
+    def reset(self):
+        return
+
+    def act(self, x):
+        opt_a = self.env.get_opt_arm()
+        
+        return opt_a
+
+
+    def act_numpy_vec(self, x):
+        opt_as = [ env.get_opt_arm() for env in self.env ]
+        for idx in range(len(self.env)):
+            self.env[idx].current_step += 1
+
+        return np.stack(opt_as, axis=0)
+    
+class SlidingWindow(Controller):
+    def __init__(self, env, window_len = 20, const = 1.0, batch_size=1):
+        super().__init__()
+        self.env = env
+        self.window_len = window_len
+        self.const = const
+        self.batch_size = batch_size
+        self.history = []
+        
+    def reset(self):
+        self.history = []
+        
+    def act(self, x):
+        actions = self.batch['context_actions'].cpu().detach().numpy()[0][-self.window_len:]
+        rewards = self.batch['context_rewards'].cpu().detach().numpy().flatten()[-self.window_len:]
+
+        b = np.zeros(self.env.dim)
+        counts = np.zeros(self.env.dim)
+        for i in range(len(actions)):
+            c = np.argmax(actions[i])
+            b[c] += rewards[i]
+            counts[c] += 1
+
+        b_mean = b / np.maximum(1, counts)
+
+        # compute the square root of the counts but clip so it's at least one
+        bons = self.const / np.maximum(1, np.sqrt(counts))
+        bounds = b_mean + bons
+
+        i = np.argmax(bounds)
+        a = np.zeros(self.env.dim)
+        a[i] = 1.0
+        self.a = a
+        return self.a
+        
+    def act_numpy_vec(self, x):
+        opt_as = [self.env.get_opt_a() for env in self.env]
+        self.env.step(opt_as)
+        self.history.extend(opt_as)
+        return opt_as
+        
+    def thompson_sampling(self, window):
+        # Implement your thompson sampling logic here
+        # This is just a placeholder
+        return np.random.choice(window)
+    
+class Exp3(Controller):
+    def __init__(self, env, eta = 0.5, batch_size = 1) -> None:
+        super().__init__()
+        self.env = env
+        self.eta = eta
+        self.batch_size = batch_size
+        self.dim = self.env.dim
+        self.logweight = np.zeros((self.batch_size, self.dim))
+
+    def get_probabilities(self):
+
+        self.weights = np.exp(self.eta * self.logweight) 
+        total_weight = np.sum(self.weights, axis = 1)
+        p = np.zeros((self.batch_size, self.dim))
+        for i in range(self.batch_size):
+            p[i, :] = self.weights[i,:] / total_weight[i]
+
+        return p
+        
+    def reset(self):
+        return
+    
+    def act(self, x = [1]):
+        a = np.zeros((self.batch_size, self.dim))
+
+        for i in range(self.batch_size):
+            idx = np.random.choice(self.dim, p=self.get_probabilities()[i,:])
+            a[i,idx] = 1
+
+        self.update(x)
+        
+        return a 
+    
+    def update(self, x):
+
+        actions = self.batch['context_actions'].cpu().detach().numpy()
+        rewards = self.batch['context_rewards'].cpu().detach().numpy()
+
+        self.logweight += 1
+
+        if actions.shape[1] > 0:
+            a = actions[:, -1, :]
+            reward = rewards[:, -1]
+            for idx in range(self.batch_size):
+                a_idx = np.argmax(a[idx,:])
+                self.logweight[idx, a_idx] -=  (1 - reward[idx]) / self.get_probabilities()[idx, a_idx]
+        
+
+
+
+
+
+        
