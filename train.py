@@ -218,17 +218,18 @@ def train():
                     for idx in range(cg_time[i], horizon):
                         true_actions[i, idx, :] = post_opt_a[i, :]
 
-                for i in range(1,2, horizon):
+                detect_pts = list(range(1, horizon, 10)) #+ list(range(35, horizon, 10))
+                for i in detect_pts:
                     restricted_batch = batch.copy()
                     restricted_batch['context_states'] = restricted_batch['context_states'][:, :i, :]
                     restricted_batch['context_actions'] = restricted_batch['context_actions'][:, :i, :]
                     restricted_batch['context_next_states'] = restricted_batch['context_next_states'][:, :i, :]
                     restricted_batch['context_rewards'] = restricted_batch['context_rewards'][:, :i]
 
-                    pred_actions = model(restricted_batch)[:,-1,:]
+                    pred_actions = model(restricted_batch)
                     pred_actions = pred_actions.reshape(-1, action_dim)
                     optimizer.zero_grad()
-                    loss = loss_fn(pred_actions, true_actions[:, i, :].reshape(-1, action_dim))/batch_size
+                    loss = loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))
                     loss.backward()
                     optimizer.step()
 
