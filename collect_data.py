@@ -206,8 +206,8 @@ def generate_histories_from_envs(envs, n_hists, n_samples, cov, env_type):
 
 def collect_data():
     if __name__ == '__main__':
-        np.random.seed(0)
-        random.seed(0)
+        np.random.seed(42)
+        random.seed(42)
 
         parser = argparse.ArgumentParser()
         common_args.add_dataset_args(parser)
@@ -248,7 +248,7 @@ def collect_data():
             # random trajectories
             config.update({'dim': dim, 'var': var, 'cov': cov, 'type': 'uniform'})
             trajs1 = generate_bandit_histories(n_envs_ratio1, **config)
-            eval_trajs = generate_bandit_histories(int(n_eval_envs), **config)
+            trajs = generate_bandit_histories(int(n_eval_envs), **config)
             # fixed_arm trajectories
             config.update({'cov': 1.0})
             trajs2 = generate_bandit_histories(n_envs_ratio2, **config)

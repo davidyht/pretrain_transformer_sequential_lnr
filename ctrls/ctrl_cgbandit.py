@@ -27,7 +27,7 @@ class OptCgPolicy(Controller):
         return np.stack(opt_as, axis=0)
     
 class SlidingWindow(Controller):
-    def __init__(self, env, window_len = 20, const = 1.0, batch_size=1):
+    def __init__(self, env, window_len = 30, const = 1.0, batch_size=1):
         super().__init__()
         self.env = env
         self.window_len = window_len
@@ -60,17 +60,40 @@ class SlidingWindow(Controller):
         a[i] = 1.0
         self.a = a
         return self.a
-        
+    
     def act_numpy_vec(self, x):
-        opt_as = [self.env.get_opt_a() for env in self.env]
-        self.env.step(opt_as)
-        self.history.extend(opt_as)
-        return opt_as
-        
-    def thompson_sampling(self, window):
-        # Implement your thompson sampling logic here
-        # This is just a placeholder
-        return np.random.choice(window)
+        actions = self.batch['context_actions'][:,-self.window_len:,:]
+        rewards = self.batch['context_rewards'][:,-self.window_len:,:]
+
+        b = np.zeros((self.batch_size, self.env.dim))
+        counts = np.zeros((self.batch_size, self.env.dim))
+        action_indices = np.argmax(actions, axis=-1)
+        for idx in range(self.batch_size):
+            actions_idx = action_indices[idx]
+            rewards_idx = rewards[idx]
+            for c in range(self.env.dim):
+                arm_rewards = rewards_idx[actions_idx == c]
+                b[idx, c] = np.sum(arm_rewards)
+                counts[idx, c] = len(arm_rewards)
+
+        b_mean = b / np.maximum(1, counts)
+
+        # compute the square root of the counts but clip so it's at least one
+        bons = self.const / np.maximum(1, np.sqrt(counts))
+        bounds = b_mean + bons
+
+        i = np.argmax(bounds, axis=-1)
+        j = np.argmin(counts, axis=-1)
+        mask = np.zeros(self.batch_size, dtype=bool)
+        for idx in range(self.batch_size):
+            if counts[idx, j[idx]] == 0:
+                mask[idx] = True
+        i[mask] = j[mask]
+
+        a = np.zeros((self.batch_size, self.env.dim))
+        a[np.arange(self.batch_size), i] = 1.0
+        self.a = a
+        return self.a
     
 class Exp3(Controller):
     def __init__(self, env, eta = 0.5, batch_size = 1) -> None:
@@ -118,7 +141,7 @@ class Exp3(Controller):
             for idx in range(self.batch_size):
                 a_idx = np.argmax(a[idx,:])
                 self.logweight[idx, a_idx] -=  (1 - reward[idx]) / self.get_probabilities()[idx, a_idx]
-        
+              
 
 
 

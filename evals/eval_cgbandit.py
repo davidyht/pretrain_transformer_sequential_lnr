@@ -51,12 +51,22 @@ def cg_online(eval_trajs, model, n_eval, horizon, var):
     all_means['Lnr'] = cum_means
     vec_env.reset()
 
+    # Sliding window policy
+    controller = SlidingWindow(
+        envs[0],
+        batch_size=len(envs))
+    cum_means = deploy_online_vec(vec_env, controller, horizon).T
+    assert cum_means.shape[0] == n_eval
+    all_means['Sld'] = cum_means
+    vec_env.reset()
+
     # Convert to numpy arrays
     all_means = {k: np.array(v) for k, v in all_means.items()}
     all_means_diff = {k: all_means['opt'] - v for k, v in all_means.items()}
 
     # Calculate means and standard errors
     means = {k: np.mean(v, axis=0) for k, v in all_means_diff.items()}
+    #print(means)
     sems = {k: scipy.stats.sem(v, axis=0) for k, v in all_means_diff.items()}
 
     # Calculate cumulative regret
@@ -78,7 +88,7 @@ def cg_online(eval_trajs, model, n_eval, horizon, var):
             ax1.fill_between(np.arange(horizon), means[key] - sems[key], means[key] + sems[key], alpha=0.2)
 
     ax1.set_yscale('log')
-    ax1.set_xlabel('Episodes')
+    ax1.set_xlabel('Time steps')
     ax1.set_ylabel('Suboptimality')
     ax1.set_title('Online Evaluation')
     ax1.legend()
@@ -153,8 +163,6 @@ def cg_sample_online(model, horizon, var, means, cg_time):
     axs[1].set_ylabel('Cumulative Regret')
     axs[1].set_title('Cumulative Regret Comparison')
     axs[1].legend()
-
-    plt.show()
 
     
 

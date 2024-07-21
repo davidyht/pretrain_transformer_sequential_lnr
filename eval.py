@@ -159,6 +159,8 @@ if __name__ == '__main__':
         os.makedirs(f'figs/{evals_filename}/online', exist_ok=True)
     if not os.path.exists(f'figs/{evals_filename}/graph'):
         os.makedirs(f'figs/{evals_filename}/graph', exist_ok=True)
+    if not os.path.exists(f'figs/{evals_filename}/online_sample'):
+        os.makedirs(f'figs/{evals_filename}/online_sample', exist_ok=True)
 
     # Online and offline evaluation.
     if envname == 'cgbandit':
@@ -174,7 +176,7 @@ if __name__ == '__main__':
         plt.cla()
         plt.close()
 
-        eval_cgbandit.cg_sample_online(model, horizon, var, means = np.array(([0.2,0.4,0.6],[0.8,0.7,0.6])), cg_time =81)
+        eval_cgbandit.cg_sample_online(model, horizon, var, means = np.array(([0.2,0.4,0.6],[0.9,0.7,0.6])), cg_time =20)
         plt.savefig(f'figs/{evals_filename}/online_sample/{save_filename}.png')
         plt.clf()
         plt.cla()
@@ -198,13 +200,13 @@ if __name__ == '__main__':
         plt.cla()
         plt.close()
         
-        eval_bandit.offline(eval_trajs, model, **config)
-        plt.savefig(f'figs/{evals_filename}/bar/{save_filename}_bar.png')
-        plt.clf()
+        # eval_bandit.offline(eval_trajs, model, **config)
+        # plt.savefig(f'figs/{evals_filename}/bar/{save_filename}_bar.png')
+        # plt.clf()
 
-        eval_bandit.offline_graph(eval_trajs, model, **config)
-        plt.savefig(f'figs/{evals_filename}/graph/{save_filename}_graph.png')
-        plt.clf()
+        # eval_bandit.offline_graph(eval_trajs, model, **config)
+        # plt.savefig(f'figs/{evals_filename}/graph/{save_filename}_graph.png')
+        # plt.clf()
         
     else:
         raise NotImplementedError

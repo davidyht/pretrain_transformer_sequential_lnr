@@ -160,8 +160,8 @@ class CgbanditEnv(BaseEnv):
         Returns:
             tuple: A tuple containing the next state, the reward, a flag indicating if the episode is done, and additional information.
         """
-#        if self.current_step >= self.H + 1:
-#            raise ValueError("Episode has already ended")
+        if self.current_step >= self.H + 1:
+            raise ValueError("Episode has already ended")
         print(self.current_step, end = '\r')
         _, r = self.transit(action)
         self.current_step += 1
@@ -229,17 +229,21 @@ class CgbanditEnvVec(BaseEnv):
         self._num_envs = len(envs)
         self.dx = envs[0].dx
         self.du = envs[0].du
+        self.current_step = 0
 
     def reset(self):
+        self.current_step = 0
         return [env.reset() for env in self._envs]
 
     def step(self, actions):
         next_obs, rews, dones = [], [], []
         for action, env in zip(actions, self._envs):
             next_ob, rew, done, _ = env.step(action)
+            env.current_step = self.current_step + 1
             next_obs.append(next_ob)
             rews.append(rew)
             dones.append(done)
+        self.current_step += 1
         return next_obs, rews, dones, {}
 
     @property
@@ -287,6 +291,12 @@ class CgbanditEnvVec(BaseEnv):
         return xs, us, xps, rs
 
     def get_arm_value(self, us):
-        values = [np.sum(env.means * u) for env, u in zip(self._envs, us)]
+        #values = [np.sum(env.means * u) for env, u in zip(self._envs, us)]
+        #return np.array(values)
+        values = []
+        for env, u in zip(self._envs, us):
+            values.append(env.get_arm_value(u))
+        values = np.array(values)
         return np.array(values)
+
 

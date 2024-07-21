@@ -218,7 +218,7 @@ def train():
                     for idx in range(cg_time[i], horizon):
                         true_actions[i, idx, :] = post_opt_a[i, :]
 
-                detect_pts = list(range(1, horizon, 10)) #+ list(range(35, horizon, 10))
+                detect_pts = list(range(1, 25, 1)) + [100]
                 for i in detect_pts:
                     restricted_batch = batch.copy()
                     restricted_batch['context_states'] = restricted_batch['context_states'][:, :i, :]
