@@ -11,12 +11,37 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 class Dataset(torch.utils.data.Dataset):
     """Dataset class."""
 
-    def __init__(self, path, config):
+    def __init__(self, config=None, data=None, path=None):
+        print(config)
         self.shuffle = config['shuffle']
         self.horizon = config['horizon']
         self.store_gpu = config['store_gpu']
         self.config = config
 
+        if data is not None:
+            self._init_from_data(data)
+        elif path is not None:
+            self._init_from_path(path)
+        else:
+            raise ValueError("Either 'data' or 'path' must be provided.")
+
+        self.zeros = np.zeros(
+            config['state_dim'] ** 2 + config['action_dim'] + 1
+        )
+        self.zeros = convert_to_tensor(self.zeros, store_gpu=self.store_gpu)
+
+    def _init_from_data(self, data):
+        self.dataset = {
+            'query_states': convert_to_tensor(data['query_states'], store_gpu=self.store_gpu),
+            'optimal_actions': convert_to_tensor(data['optimal_actions'], store_gpu=self.store_gpu),
+            'context_states': convert_to_tensor(data['context_states'], store_gpu=self.store_gpu),
+            'context_actions': convert_to_tensor(data['context_actions'], store_gpu=self.store_gpu),
+            'context_next_states': convert_to_tensor(data['context_next_states'], store_gpu=self.store_gpu),
+            'context_rewards': convert_to_tensor(data['context_rewards'], store_gpu=self.store_gpu),
+            'cg_times': convert_to_tensor(data['cg_times'], store_gpu=self.store_gpu),
+        }
+
+    def _init_from_path(self, path):
         # if path is not a list
         if not isinstance(path, list):
             path = [path]
@@ -67,11 +92,6 @@ class Dataset(torch.utils.data.Dataset):
             'context_rewards': convert_to_tensor(context_rewards, store_gpu=self.store_gpu),
             'cg_times': convert_to_tensor(cg_times, store_gpu=self.store_gpu),
         }
-
-        self.zeros = np.zeros(
-            config['state_dim'] ** 2 + config['action_dim'] + 1
-        )
-        self.zeros = convert_to_tensor(self.zeros, store_gpu=self.store_gpu)
 
     def __len__(self):
         'Denotes the total number of samples'

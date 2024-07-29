@@ -17,6 +17,7 @@ from net import Transformer
 from utils import (
     build_data_filename,
     build_model_filename,
+    convert_to_tensor
 )
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -43,6 +44,77 @@ def load_checkpoints(model, filename):
         # No existing model checkpoints, start from epoch 0
         start_epoch = 0
     return start_epoch, model
+
+def sorted_training_set(model, train_set, action_dim, loss_fn, horizon, params, threshold, config):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    params0 = {
+        'batch_size': 5,
+        'shuffle': True,
+        'drop_last': True,
+    }
+    train_set = torch.utils.data.DataLoader(train_set.dataset, **params0)
+
+    context_states = []
+    context_actions = []
+    context_next_states = []
+    context_rewards = []
+    query_states = []
+    optimal_actions = []
+    cg_times = []
+
+    
+    for i, batch in enumerate(train_set):
+        batch = {k: v.to(device) for k, v in batch.items()}
+        pred_actions = model(batch).reshape(-1, action_dim)
+        true_actions = torch.zeros((params0['batch_size'], horizon, action_dim)).to(device)
+        pre_opt_a = batch['optimal_actions'][:, 0:action_dim]
+        post_opt_a = batch['optimal_actions'][:, action_dim:]
+        cg_time = batch['cg_times'].squeeze().tolist()
+        cg_time = [int(t) for t in cg_time]
+        context_return = batch['context_rewards']
+
+        for j in range(params0['batch_size']):
+            for idx in range(cg_time[j]):
+                true_actions[j, idx, :] = pre_opt_a[j, :]
+            for idx in range(cg_time[j], horizon):
+                true_actions[j, idx, :] = post_opt_a[j, :]
+        true_actions = true_actions.reshape(-1, action_dim)
+        
+        loss = loss_fn(pred_actions, true_actions) / (horizon * params0['batch_size'])
+        if loss.item() <= threshold:
+            context_states.append(batch['context_states'])
+            context_actions.append(batch['context_actions'])
+            context_next_states.append(batch['context_next_states'])
+            context_rewards.append(batch['context_rewards'])
+            query_states.append(batch['query_states'])
+            optimal_actions.append(batch['optimal_actions'])
+            cg_times.append(batch['cg_times'])
+
+    context_states = np.concatenate(context_states, axis=0)
+    context_actions = np.concatenate(context_actions, axis=0)
+    context_next_states = np.concatenate(context_next_states, axis=0)
+    context_rewards = np.concatenate(context_rewards, axis=0)
+
+    if len(context_rewards.shape) < 3:
+        context_rewards = context_rewards[:, :, None]
+    query_states = np.concatenate(query_states, axis=0)
+    optimal_actions = np.concatenate(optimal_actions, axis=0)
+    cg_times = np.concatenate(cg_times, axis=0)
+
+    dataset = Dataset(
+         data = {
+            'query_states': query_states,
+            'optimal_actions': optimal_actions,
+            'context_states': context_states,
+            'context_actions': context_actions,
+            'context_next_states': context_next_states,
+            'context_rewards': context_rewards,
+            'cg_times': cg_times,
+        }
+        , config = config
+    )
+    print("New training set size: ", len(dataset))
+    return torch.utils.data.DataLoader(dataset, **params)
 
 def train():
     if __name__ == '__main__':
@@ -146,11 +218,10 @@ def train():
             # Write the same output to the log file
             with open(log_filename, 'a') as f:
                 f.write(string + '\n')
-
         path_train = build_data_filename(env, n_envs, dataset_config, mode=0)
         path_test = build_data_filename(env, n_envs, dataset_config, mode=1)
-        train_dataset = Dataset(path_train, config)
-        test_dataset = Dataset(path_test, config)
+        train_dataset = Dataset(path = path_train, config = config)
+        test_dataset = Dataset(path = path_test, config = config)
         train_loader = torch.utils.data.DataLoader(train_dataset, **params)
         test_loader = torch.utils.data.DataLoader(test_dataset, **params)
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
@@ -200,6 +271,9 @@ def train():
             # TRAINING
             epoch_train_loss = 0.0
             start_time = time.time()
+
+            if epoch % 10 == 0:
+                train_loader = sorted_training_set(model, train_loader, action_dim, loss_fn, horizon, params, threshold = test_loss[-1], config = config)
             for i, batch in enumerate(train_loader):
                 print(f"Batch {i} of {len(train_loader)}", end='\r')
                 batch = {k: v.to(device) for k, v in batch.items()}
@@ -218,7 +292,7 @@ def train():
                     for idx in range(cg_time[i], horizon):
                         true_actions[i, idx, :] = post_opt_a[i, :]
 
-                detect_pts = list(range(1, 25, 1)) + [100]
+                detect_pts = [100]
                 for i in detect_pts:
                     restricted_batch = batch.copy()
                     restricted_batch['context_states'] = restricted_batch['context_states'][:, :i, :]
@@ -238,13 +312,14 @@ def train():
                 pred_actions = pred_actions.reshape(-1, action_dim)
                 loss = loss_fn(pred_actions, true_actions)
                 epoch_train_loss += loss.item() / horizon
-            train_loss.append(epoch_train_loss / len(train_dataset))
+            train_loss.append(epoch_train_loss / len(train_loader.dataset))
             end_time = time.time()
             printw(f"\tTrain loss: {train_loss[-1]}")
             printw(f"\tTrain time: {end_time - start_time}")
             # LOGGING
             if (epoch + 1) % 50 == 0:
                 torch.save(model.state_dict(), f'models/{filename}_epoch{epoch+1}.pt')
+
             # PLOTTING
             if (epoch + 1) % 10 == 0:
                 printw(f"Test Loss:        {test_loss[-1]}")

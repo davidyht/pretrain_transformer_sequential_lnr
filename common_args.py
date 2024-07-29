@@ -1,7 +1,7 @@
 
 def add_dataset_args(parser):
     parser.add_argument("--envs", type=int, required=False,
-                        default=1000, help="Envs")
+                        default=10000, help="Envs")
     parser.add_argument("--envs_eval", type=int, required=False,
                         default=100, help="Eval Envs")
     parser.add_argument("--hists", type=int, required=False,
@@ -19,7 +19,7 @@ def add_dataset_args(parser):
                         default=0.1, help="Bandit arm variance")
     parser.add_argument("--cov", type=float, required=False,
                         default=0.0, help="Coverage of optimal arm")
-    parser.add_argument("--rdm_fix_ratio", type = list, required = False, default = [0.15, 0.85], help = "Ratio of random-arm and fixed-arm trajectories")
+    parser.add_argument("--rdm_fix_ratio", type = list, required = False, default = [1.0, 0.0], help = "Ratio of random-arm and fixed-arm trajectories")
 
     parser.add_argument("--env", type=str, required=False, default = "cgbandit", help="Environment")
     parser.add_argument("--env_id_start", type=int, required=False,
@@ -44,7 +44,7 @@ def add_model_args(parser):
                         default=3e-4, help="Learning Rate")
     parser.add_argument("--dropout", type=float,
                         required=False, default=0.2, help="Dropout")
-    parser.add_argument('--shuffle', default=False, action='store_true')
+    parser.add_argument('--shuffle', required = False, default=False, action='store_true')
     parser.add_argument('--intermediate_size', required = False, default=1024, help = "Intermediate size")
 
 
