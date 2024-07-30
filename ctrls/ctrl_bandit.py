@@ -146,7 +146,7 @@ class BanditTransformerController(Controller):
         states = torch.tensor(x)[None, :].float().to(device)
         self.batch['query_states'] = states
 
-        a = self.model(self.batch)
+        a = self.model(self.batch)[0]
         a = a.cpu().detach().numpy()[0]
 
         if self.sample:
@@ -168,7 +168,7 @@ class BanditTransformerController(Controller):
         states = states.float().to(device)
         self.batch['query_states'] = states
 
-        a = self.model(self.batch)
+        a = self.model(self.batch)[0]
         a = a.cpu().detach().numpy()
         if self.batch_size == 1:
             a = a[0]

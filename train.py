@@ -287,6 +287,8 @@ def train():
                 true_actions = torch.zeros((params['batch_size'], horizon, action_dim)).to(device)
                 true_context = torch.zeros((params['batch_size'], horizon, 2 * action_dim)).to(device)
                 means = batch['means']
+                num_pulls  = np.cumsum(batch['context_actions'], axis=1)
+                true_context[:, :, :action_dim] = num_pulls
                 pre_opt_a = batch['optimal_actions'][:, :action_dim]  # of size (batch_size, action_dim)
                 post_opt_a = batch['optimal_actions'][:, action_dim:]  # of size (batch_size, action_dim)
                 cg_time = batch['cg_times']  # of size (batch_size, 1)
@@ -297,10 +299,10 @@ def train():
                 for i in range(params['batch_size']):
                     for idx in range(cg_time[i]):
                         true_actions[i, idx, :] = pre_opt_a[i, :]
-                        true_context[i, idx, -action_dim:] = means[0]
+                        true_context[i, idx, -action_dim:] = means[i, 0]
                     for idx in range(cg_time[i], horizon):
                         true_actions[i, idx, :] = post_opt_a[i, :]
-                        true_context[i, idx, -action_dim:] = means[1]
+                        true_context[i, idx, -action_dim:] = means[i, 1]
 
                 detect_pts = [100]
                 for i in detect_pts:
@@ -319,7 +321,7 @@ def train():
                     loss.backward()
                     optimizer.step()
 
-                pred_actions = model(batch)
+                pred_actions = model(batch)[0]
                 true_actions = true_actions.reshape(-1, action_dim)
                 pred_actions = pred_actions.reshape(-1, action_dim)
                 loss = loss_fn(pred_actions, true_actions)

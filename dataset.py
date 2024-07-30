@@ -58,6 +58,7 @@ class Dataset(torch.utils.data.Dataset):
         query_states = []
         optimal_actions = []
         cg_times = []
+        means = []
 
         for traj in self.trajs:
             context_states.append(traj['context_states'])
@@ -67,6 +68,7 @@ class Dataset(torch.utils.data.Dataset):
 
             query_states.append(traj['query_state'])
             optimal_actions.append(traj['optimal_action'])
+            means.append(traj['means'])
             if 'cg_time' in traj:
                 cg_times.append(traj['cg_time'])
             else:
@@ -82,6 +84,7 @@ class Dataset(torch.utils.data.Dataset):
         query_states = np.array(query_states)
         optimal_actions = np.array(optimal_actions)
         cg_times = np.array(cg_times)
+        means = np.array(means)
 
         self.dataset = {
             'query_states': convert_to_tensor(query_states, store_gpu=self.store_gpu),
@@ -91,6 +94,7 @@ class Dataset(torch.utils.data.Dataset):
             'context_next_states': convert_to_tensor(context_next_states, store_gpu=self.store_gpu),
             'context_rewards': convert_to_tensor(context_rewards, store_gpu=self.store_gpu),
             'cg_times': convert_to_tensor(cg_times, store_gpu=self.store_gpu),
+            'means': convert_to_tensor(means, store_gpu=self.store_gpu),
         }
 
     def __len__(self):
@@ -107,6 +111,7 @@ class Dataset(torch.utils.data.Dataset):
             'query_states': self.dataset['query_states'][index],
             'optimal_actions': self.dataset['optimal_actions'][index],
             'cg_times': self.dataset['cg_times'][index],
+            'means': self.dataset['means'][index],
             'zeros': self.zeros,
         }
 
@@ -117,6 +122,7 @@ class Dataset(torch.utils.data.Dataset):
             res['context_next_states'] = res['context_next_states'][perm]
             res['context_rewards'] = res['context_rewards'][perm]
             res['cg_times'] = res['cg_times'][perm]
+            res['means'] = res['means'][perm]
 
         return res
 
