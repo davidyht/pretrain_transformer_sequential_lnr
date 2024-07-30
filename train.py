@@ -222,19 +222,22 @@ def train():
         path_test = build_data_filename(env, n_envs, dataset_config, mode=1)
         train_dataset = Dataset(path = path_train, config = config)
         test_dataset = Dataset(path = path_test, config = config)
-        train_loader = torch.utils.data.DataLoader(train_dataset, **params)
+        train_loader0 = torch.utils.data.DataLoader(train_dataset, **params)
         test_loader = torch.utils.data.DataLoader(test_dataset, **params)
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
         loss_fn = torch.nn.CrossEntropyLoss(reduction='sum')
         test_loss = []
         train_loss = []
-        printw("Num train batches: " + str(len(train_loader)))
+        printw("Num train batches: " + str(len(train_loader0)))
         printw("Num test batches: " + str(len(test_loader)))
         start_epoch, model = load_checkpoints(model, filename)
         if start_epoch == 0:
             printw("Starting from scratch.")
         else:
             printw(f"Starting from epoch {start_epoch}")
+        
+        threshold = 1.0
+        train_loader = train_loader0
         for epoch in range(start_epoch, num_epochs):
             # EVALUATION
             printw(f"Epoch: {epoch + 1}")
@@ -273,7 +276,10 @@ def train():
             start_time = time.time()
 
             if epoch % 10 == 0:
-                train_loader = sorted_training_set(model, train_loader, action_dim, loss_fn, horizon, params, threshold = test_loss[-1], config = config)
+                threshold = threshold * 1.02
+                print("update threshold to ", threshold)
+                train_loader = sorted_training_set(model, train_loader0, action_dim, loss_fn, horizon, params, threshold = threshold, config = config)
+            
             for i, batch in enumerate(train_loader):
                 print(f"Batch {i} of {len(train_loader)}", end='\r')
                 batch = {k: v.to(device) for k, v in batch.items()}
@@ -317,7 +323,7 @@ def train():
             printw(f"\tTrain loss: {train_loss[-1]}")
             printw(f"\tTrain time: {end_time - start_time}")
             # LOGGING
-            if (epoch + 1) % 50 == 0:
+            if (epoch + 1) % 20 == 0:
                 torch.save(model.state_dict(), f'models/{filename}_epoch{epoch+1}.pt')
 
             # PLOTTING
