@@ -56,44 +56,60 @@ def sorted_training_set(model, train_set, action_dim, loss_fn, horizon, params, 
 
     context_states = []
     context_actions = []
+    true_actions = []
     context_next_states = []
     context_rewards = []
     query_states = []
     optimal_actions = []
     cg_times = []
+    truncate_index = []
 
     
     for i, batch in enumerate(train_set):
         batch = {k: v.to(device) for k, v in batch.items()}
-        pred_actions = model(batch).reshape(-1, action_dim)
-        true_actions = torch.zeros((params0['batch_size'], horizon, action_dim)).to(device)
-        pre_opt_a = batch['optimal_actions'][:, 0:action_dim]
-        post_opt_a = batch['optimal_actions'][:, action_dim:]
-        cg_time = batch['cg_times'].squeeze().tolist()
-        cg_time = [int(t) for t in cg_time]
-        context_return = batch['context_rewards']
+        pred_actions_i = model(batch)
+        context_actions_i = batch['context_actions']
 
-        for j in range(params0['batch_size']):
-            for idx in range(cg_time[j]):
-                true_actions[j, idx, :] = pre_opt_a[j, :]
-            for idx in range(cg_time[j], horizon):
-                true_actions[j, idx, :] = post_opt_a[j, :]
-        true_actions = true_actions.reshape(-1, action_dim)
+        for j in range(horizon):
+            loss_i = loss_fn(pred_actions_i[:, :j+1, :].reshape(-1, action_dim), context_actions_i[:, :j+1, :].reshape(-1, action_dim)) / params0['batch_size']
+            if loss_i.item() > threshold:
+                break
         
-        loss = loss_fn(pred_actions, true_actions) / (horizon * params0['batch_size'])
-        if loss.item() <= threshold:
-            context_states.append(batch['context_states'])
-            context_actions.append(batch['context_actions'])
-            context_next_states.append(batch['context_next_states'])
-            context_rewards.append(batch['context_rewards'])
-            query_states.append(batch['query_states'])
-            optimal_actions.append(batch['optimal_actions'])
-            cg_times.append(batch['cg_times'])
+        truncate_index.append(j)
+
+        # Truncate batch[''] at time step j
+        batch['context_states'] = batch['context_states'][:, :j+1, :]
+        batch['context_actions'] = batch['context_actions'][:, :j+1, :]
+        batch['true_actions'] = batch['true_actions'][:, :j+1, :]
+        batch['context_next_states'] = batch['context_next_states'][:, :j+1, :]
+        batch['context_rewards'] = batch['context_rewards'][:, :j+1, :]
+
+        # Pad the rest with 0
+        pad_length = horizon - j - 1
+        batch['context_states'] = torch.cat([batch['context_states'], torch.zeros((params0['batch_size'], pad_length, 1)).to(device)], dim=1)
+        batch['context_actions'] = torch.cat([batch['context_actions'], torch.zeros((params0['batch_size'], pad_length, action_dim)).to(device)], dim=1)
+        batch['true_actions'] = torch.cat([batch['true_actions'], torch.zeros((params0['batch_size'], pad_length, action_dim)).to(device)], dim=1)
+        batch['context_next_states'] = torch.cat([batch['context_next_states'], torch.zeros((params0['batch_size'], pad_length, 1)).to(device)], dim=1)
+        batch['context_rewards'] = torch.cat([batch['context_rewards'], torch.zeros((params0['batch_size'], pad_length, 1)).to(device)], dim=1)
+
+        context_states.append(batch['context_states'])
+        context_actions.append(batch['context_actions'])
+        true_actions.append(batch['true_actions'])
+        context_next_states.append(batch['context_next_states'])
+        context_rewards.append(batch['context_rewards'])
+        query_states.append(batch['query_states'])
+        optimal_actions.append(batch['optimal_actions'])
+        cg_times.append(batch['cg_times'])
 
     context_states = np.concatenate(context_states, axis=0)
     context_actions = np.concatenate(context_actions, axis=0)
+    true_actions = np.concatenate(true_actions, axis=0)
     context_next_states = np.concatenate(context_next_states, axis=0)
     context_rewards = np.concatenate(context_rewards, axis=0)
+    truncate_mean = np.mean(truncate_index)
+    highest = np.max(truncate_index)
+    highest_num = np.sum(np.array(truncate_index) == highest)
+    print("Highest: ", highest, "Highest num: ", highest_num)
 
     if len(context_rewards.shape) < 3:
         context_rewards = context_rewards[:, :, None]
@@ -107,6 +123,7 @@ def sorted_training_set(model, train_set, action_dim, loss_fn, horizon, params, 
             'optimal_actions': optimal_actions,
             'context_states': context_states,
             'context_actions': context_actions,
+            'true_actions': true_actions,
             'context_next_states': context_next_states,
             'context_rewards': context_rewards,
             'cg_times': cg_times,
@@ -114,6 +131,7 @@ def sorted_training_set(model, train_set, action_dim, loss_fn, horizon, params, 
         , config = config
     )
     print("New training set size: ", len(dataset))
+    print("Truncate mean: ", truncate_mean)
     return torch.utils.data.DataLoader(dataset, **params)
 
 def train():
@@ -236,7 +254,7 @@ def train():
         else:
             printw(f"Starting from epoch {start_epoch}")
         
-        threshold = 1.0
+        threshold = 20
         train_loader = train_loader0
         for epoch in range(start_epoch, num_epochs):
             # EVALUATION
@@ -248,18 +266,7 @@ def train():
                     print(f"Batch {i} of {len(test_loader)}", end='\r')
 
                     batch = {k: v.to(device) for k, v in batch.items()}
-                    true_actions = torch.zeros((params['batch_size'], horizon, action_dim)).to(device)
-                    pre_opt_a = batch['optimal_actions'][:, 0:dim]
-                    post_opt_a = batch['optimal_actions'][:, dim:]
-                    cg_time = batch['cg_times'].squeeze().tolist()
-                    cg_time = [int(t) for t in cg_time]
-                    context_return = batch['context_rewards']
-
-                    for i in range(params['batch_size']):
-                        for idx in range(cg_time[i]):
-                            true_actions[i, idx, :] = pre_opt_a[i, :]
-                        for idx in range(cg_time[i], horizon):
-                            true_actions[i, idx, :] = post_opt_a[i, :]
+                    true_actions = batch['true_actions']
 
                     pred_actions = model(batch)
                     true_actions = true_actions.reshape(-1, action_dim)
@@ -276,7 +283,7 @@ def train():
             start_time = time.time()
 
             if epoch % 10 == 0:
-                threshold = threshold * 1.02
+                threshold = threshold * 1.2
                 print("update threshold to ", threshold)
                 train_loader = sorted_training_set(model, train_loader0, action_dim, loss_fn, horizon, params, threshold = threshold, config = config)
             
@@ -284,39 +291,15 @@ def train():
                 print(f"Batch {i} of {len(train_loader)}", end='\r')
                 batch = {k: v.to(device) for k, v in batch.items()}
 
-                true_actions = torch.zeros((params['batch_size'], horizon, action_dim)).to(device)
-                pre_opt_a = batch['optimal_actions'][:, :action_dim]  # of size (batch_size, action_dim)
-                post_opt_a = batch['optimal_actions'][:, action_dim:]  # of size (batch_size, action_dim)
-                cg_time = batch['cg_times']  # of size (batch_size, 1)
-                cg_time = cg_time.squeeze().tolist()
-                cg_time = [int(t) for t in cg_time]  # turn into iterable list
-                context_return = batch['context_rewards']
-
-                for i in range(params['batch_size']):
-                    for idx in range(cg_time[i]):
-                        true_actions[i, idx, :] = pre_opt_a[i, :]
-                    for idx in range(cg_time[i], horizon):
-                        true_actions[i, idx, :] = post_opt_a[i, :]
-
-                detect_pts = [100]
-                for i in detect_pts:
-                    restricted_batch = batch.copy()
-                    restricted_batch['context_states'] = restricted_batch['context_states'][:, :i, :]
-                    restricted_batch['context_actions'] = restricted_batch['context_actions'][:, :i, :]
-                    restricted_batch['context_next_states'] = restricted_batch['context_next_states'][:, :i, :]
-                    restricted_batch['context_rewards'] = restricted_batch['context_rewards'][:, :i]
-
-                    pred_actions = model(restricted_batch)
-                    pred_actions = pred_actions.reshape(-1, action_dim)
-                    optimizer.zero_grad()
-                    loss = loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))
-                    loss.backward()
-                    optimizer.step()
+                true_actions = batch['true_actions']
 
                 pred_actions = model(batch)
-                true_actions = true_actions.reshape(-1, action_dim)
                 pred_actions = pred_actions.reshape(-1, action_dim)
-                loss = loss_fn(pred_actions, true_actions)
+                optimizer.zero_grad()
+                loss = loss_fn(pred_actions, true_actions.reshape(-1, action_dim))
+                loss.backward()
+                optimizer.step()
+
                 epoch_train_loss += loss.item() / horizon
             train_loss.append(epoch_train_loss / len(train_loader.dataset))
             end_time = time.time()

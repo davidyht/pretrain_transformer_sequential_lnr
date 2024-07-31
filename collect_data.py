@@ -116,12 +116,16 @@ def generate_bandit_histories_from_envs(envs, n_hists, n_samples, cov, type):
             for k in range(n_samples):
                 query_state = np.array([1])
                 optimal_action = np.concatenate((env.opt_a,env.opt_a),axis=0)
+                true_actions = np.zeros((env.H, env.dim))
+                for i in range(env.H):
+                    true_actions[i][np.argmax(env.means)] = 1.0
 
                 traj = {
                     'query_state': query_state,
                     'optimal_action': optimal_action,
                     'context_states': context_states,
                     'context_actions': context_actions,
+                    'true_actions': true_actions,
                     'context_next_states': context_next_states,
                     'context_rewards': context_rewards,
                     'means': env.means,
@@ -142,12 +146,19 @@ def generate_cgbandit_histories_from_envs(envs, n_hists, n_samples, cov, type):
             for k in range(n_samples):
                 query_state = np.array([1])
                 optimal_action = np.concatenate((env.pre_opt_a,env.post_opt_a),axis=0)
+                true_actions = np.zeros((env.H, env.dim))
+                for i in range(env.H):
+                    if i < env.cg_time:
+                        true_actions[i][np.argmax(env.pre_means)] = 1.0
+                    else:
+                        true_actions[i][np.argmax(env.post_means)] = 1.0
 
                 traj = {
                     'query_state': query_state,
                     'optimal_action': optimal_action,
                     'context_states': context_states,
                     'context_actions': context_actions,
+                    'true_actions': true_actions,
                     'context_next_states': context_next_states,
                     'context_rewards': context_rewards,
                     'means': env.means,
@@ -157,7 +168,7 @@ def generate_cgbandit_histories_from_envs(envs, n_hists, n_samples, cov, type):
     return trajs
 
 def generate_cgbandit_histories(n_envs, dim, horizon, var, **kwargs):
-    envs = [cg_bandit.sample(dim, horizon, var)
+    envs = [cg_bandit.sample(dim, horizon, var) 
             for _ in range(n_envs)]
     trajs = generate_cgbandit_histories_from_envs(envs, **kwargs)
     return trajs
@@ -181,6 +192,13 @@ def generate_histories_from_envs(envs, n_hists, n_samples, cov, env_type):
                 ) = rollin_cgbandit(env, cov=cov)
                 query_state = np.array([1])  
                 optimal_action = env.opt_a  
+                true_actions = np.zeros((env.H, env.dim))
+                for i in range(env.H):
+                    if i < env.cg_time:
+                        true_actions[i][np.argmax(env.pre_means)] = 1.0
+                    else:
+                        true_actions[i][np.argmax(env.post_means)] = 1.0
+
             elif env_type == 'bandit':
                 (
                     context_states,
@@ -190,6 +208,9 @@ def generate_histories_from_envs(envs, n_hists, n_samples, cov, env_type):
                 ) = rollin_bandit(env, cov=cov)
                 query_state = np.array([1])
                 optimal_action = env.opt_a
+                true_actions = np.zeros((env.H, env.dim))
+                for i in range(env.H):
+                    true_actions[i][np.argmax(env.means)] = 1.0
 
             for k in range(n_samples):
                 traj = {
@@ -197,6 +218,7 @@ def generate_histories_from_envs(envs, n_hists, n_samples, cov, env_type):
                     'optimal_action': optimal_action,
                     'context_states': context_states,
                     'context_actions': context_actions,
+                    'true_actions': true_actions,   
                     'context_next_states': context_next_states,
                     'context_rewards': context_rewards,
                     'means': env.means,

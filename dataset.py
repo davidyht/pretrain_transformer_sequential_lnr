@@ -36,6 +36,7 @@ class Dataset(torch.utils.data.Dataset):
             'optimal_actions': convert_to_tensor(data['optimal_actions'], store_gpu=self.store_gpu),
             'context_states': convert_to_tensor(data['context_states'], store_gpu=self.store_gpu),
             'context_actions': convert_to_tensor(data['context_actions'], store_gpu=self.store_gpu),
+            'true_actions': convert_to_tensor(data['true_actions'], store_gpu=self.store_gpu),
             'context_next_states': convert_to_tensor(data['context_next_states'], store_gpu=self.store_gpu),
             'context_rewards': convert_to_tensor(data['context_rewards'], store_gpu=self.store_gpu),
             'cg_times': convert_to_tensor(data['cg_times'], store_gpu=self.store_gpu),
@@ -53,6 +54,7 @@ class Dataset(torch.utils.data.Dataset):
             
         context_states = []
         context_actions = []
+        true_actions = []
         context_next_states = []
         context_rewards = []
         query_states = []
@@ -62,6 +64,7 @@ class Dataset(torch.utils.data.Dataset):
         for traj in self.trajs:
             context_states.append(traj['context_states'])
             context_actions.append(traj['context_actions'])
+            true_actions.append(traj['true_actions'])
             context_next_states.append(traj['context_next_states'])
             context_rewards.append(traj['context_rewards'])
 
@@ -74,6 +77,7 @@ class Dataset(torch.utils.data.Dataset):
 
         context_states = np.array(context_states)
         context_actions = np.array(context_actions)
+        true_actions = np.array(true_actions)
         context_next_states = np.array(context_next_states)
         context_rewards = np.array(context_rewards)
         
@@ -88,6 +92,7 @@ class Dataset(torch.utils.data.Dataset):
             'optimal_actions': convert_to_tensor(optimal_actions, store_gpu=self.store_gpu),
             'context_states': convert_to_tensor(context_states, store_gpu=self.store_gpu),
             'context_actions': convert_to_tensor(context_actions, store_gpu=self.store_gpu),
+            'true_actions': convert_to_tensor(true_actions, store_gpu=self.store_gpu),
             'context_next_states': convert_to_tensor(context_next_states, store_gpu=self.store_gpu),
             'context_rewards': convert_to_tensor(context_rewards, store_gpu=self.store_gpu),
             'cg_times': convert_to_tensor(cg_times, store_gpu=self.store_gpu),
@@ -102,6 +107,7 @@ class Dataset(torch.utils.data.Dataset):
         res = {
             'context_states': self.dataset['context_states'][index],
             'context_actions': self.dataset['context_actions'][index],
+            'true_actions': self.dataset['true_actions'][index],    
             'context_next_states': self.dataset['context_next_states'][index],
             'context_rewards': self.dataset['context_rewards'][index],
             'query_states': self.dataset['query_states'][index],
@@ -114,6 +120,7 @@ class Dataset(torch.utils.data.Dataset):
             perm = torch.randperm(self.horizon)
             res['context_states'] = res['context_states'][perm]
             res['context_actions'] = res['context_actions'][perm]
+            res['true_actions'] = res['true_actions'][perm]
             res['context_next_states'] = res['context_next_states'][perm]
             res['context_rewards'] = res['context_rewards'][perm]
             res['cg_times'] = res['cg_times'][perm]
