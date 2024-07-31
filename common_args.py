@@ -41,7 +41,7 @@ def add_model_args(parser):
                         default=4, help="Number of layers")
     parser.add_argument("--context_len", type=int, required=False, default = 100, help = "Context length of transformer")
     parser.add_argument("--lr", type=float, required=False,
-                        default=3e-4, help="Learning Rate")
+                        default=1e-3, help="Learning Rate")
     parser.add_argument("--dropout", type=float,
                         required=False, default=0.2, help="Dropout")
     parser.add_argument('--shuffle', required = False, default=False, action='store_true')

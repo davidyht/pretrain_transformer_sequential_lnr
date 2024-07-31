@@ -1,4 +1,5 @@
 import torch.multiprocessing as mp
+import torch.nn.functional as F
 if mp.get_start_method(allow_none=True) is None:
     mp.set_start_method('spawn', force=True)  # or 'forkserver'
 
@@ -45,94 +46,23 @@ def load_checkpoints(model, filename):
         start_epoch = 0
     return start_epoch, model
 
-def sorted_training_set(model, train_set, action_dim, loss_fn, horizon, params, threshold, config):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    params0 = {
-        'batch_size': 5,
-        'shuffle': True,
-        'drop_last': True,
-    }
-    train_set = torch.utils.data.DataLoader(train_set.dataset, **params0)
+def compute_weight(model, batch, batch_size):
+    weights = []
+    pred_action = model(batch).detach().numpy()
 
-    context_states = []
-    context_actions = []
-    true_actions = []
-    context_next_states = []
-    context_rewards = []
-    query_states = []
-    optimal_actions = []
-    cg_times = []
-    truncate_index = []
-
+    for i in range(batch_size):
+        weight_vec = np.inner(pred_action[i], batch['context_actions'][i])
+        weight_vec = np.diagonal(weight_vec)
+        weight_vec = np.cumprod(weight_vec)
+        weight_vec = weight_vec / weight_vec.sum()  # 归一化处理
+        random_vec = np.random.rand(len(weight_vec))
+        weight_vec = (random_vec < weight_vec).astype(int)  # 生成所需的向量
+        weights.append(weight_vec)
     
-    for i, batch in enumerate(train_set):
-        batch = {k: v.to(device) for k, v in batch.items()}
-        pred_actions_i = model(batch)
-        context_actions_i = batch['context_actions']
+    weights = np.array(weights).reshape(-1,)
+    return weights
 
-        for j in range(horizon):
-            loss_i = loss_fn(pred_actions_i[:, :j+1, :].reshape(-1, action_dim), context_actions_i[:, :j+1, :].reshape(-1, action_dim)) / params0['batch_size']
-            if loss_i.item() > threshold:
-                break
-        
-        truncate_index.append(j)
 
-        # Truncate batch[''] at time step j
-        batch['context_states'] = batch['context_states'][:, :j+1, :]
-        batch['context_actions'] = batch['context_actions'][:, :j+1, :]
-        batch['true_actions'] = batch['true_actions'][:, :j+1, :]
-        batch['context_next_states'] = batch['context_next_states'][:, :j+1, :]
-        batch['context_rewards'] = batch['context_rewards'][:, :j+1, :]
-
-        # Pad the rest with 0
-        pad_length = horizon - j - 1
-        batch['context_states'] = torch.cat([batch['context_states'], torch.zeros((params0['batch_size'], pad_length, 1)).to(device)], dim=1)
-        batch['context_actions'] = torch.cat([batch['context_actions'], torch.zeros((params0['batch_size'], pad_length, action_dim)).to(device)], dim=1)
-        batch['true_actions'] = torch.cat([batch['true_actions'], torch.zeros((params0['batch_size'], pad_length, action_dim)).to(device)], dim=1)
-        batch['context_next_states'] = torch.cat([batch['context_next_states'], torch.zeros((params0['batch_size'], pad_length, 1)).to(device)], dim=1)
-        batch['context_rewards'] = torch.cat([batch['context_rewards'], torch.zeros((params0['batch_size'], pad_length, 1)).to(device)], dim=1)
-
-        context_states.append(batch['context_states'])
-        context_actions.append(batch['context_actions'])
-        true_actions.append(batch['true_actions'])
-        context_next_states.append(batch['context_next_states'])
-        context_rewards.append(batch['context_rewards'])
-        query_states.append(batch['query_states'])
-        optimal_actions.append(batch['optimal_actions'])
-        cg_times.append(batch['cg_times'])
-
-    context_states = np.concatenate(context_states, axis=0)
-    context_actions = np.concatenate(context_actions, axis=0)
-    true_actions = np.concatenate(true_actions, axis=0)
-    context_next_states = np.concatenate(context_next_states, axis=0)
-    context_rewards = np.concatenate(context_rewards, axis=0)
-    truncate_mean = np.mean(truncate_index)
-    highest = np.max(truncate_index)
-    highest_num = np.sum(np.array(truncate_index) == highest)
-    print("Highest: ", highest, "Highest num: ", highest_num)
-
-    if len(context_rewards.shape) < 3:
-        context_rewards = context_rewards[:, :, None]
-    query_states = np.concatenate(query_states, axis=0)
-    optimal_actions = np.concatenate(optimal_actions, axis=0)
-    cg_times = np.concatenate(cg_times, axis=0)
-
-    dataset = Dataset(
-         data = {
-            'query_states': query_states,
-            'optimal_actions': optimal_actions,
-            'context_states': context_states,
-            'context_actions': context_actions,
-            'true_actions': true_actions,
-            'context_next_states': context_next_states,
-            'context_rewards': context_rewards,
-            'cg_times': cg_times,
-        }
-        , config = config
-    )
-    print("New training set size: ", len(dataset))
-    print("Truncate mean: ", truncate_mean)
-    return torch.utils.data.DataLoader(dataset, **params)
 
 def train():
     if __name__ == '__main__':
@@ -240,22 +170,20 @@ def train():
         path_test = build_data_filename(env, n_envs, dataset_config, mode=1)
         train_dataset = Dataset(path = path_train, config = config)
         test_dataset = Dataset(path = path_test, config = config)
-        train_loader0 = torch.utils.data.DataLoader(train_dataset, **params)
+        train_loader = torch.utils.data.DataLoader(train_dataset, **params)
         test_loader = torch.utils.data.DataLoader(test_dataset, **params)
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
         loss_fn = torch.nn.CrossEntropyLoss(reduction='sum')
         test_loss = []
         train_loss = []
-        printw("Num train batches: " + str(len(train_loader0)))
+        printw("Num train batches: " + str(len(train_loader)))
         printw("Num test batches: " + str(len(test_loader)))
         start_epoch, model = load_checkpoints(model, filename)
         if start_epoch == 0:
             printw("Starting from scratch.")
         else:
             printw(f"Starting from epoch {start_epoch}")
-        
-        threshold = 20
-        train_loader = train_loader0
+
         for epoch in range(start_epoch, num_epochs):
             # EVALUATION
             printw(f"Epoch: {epoch + 1}")
@@ -281,24 +209,22 @@ def train():
             # TRAINING
             epoch_train_loss = 0.0
             start_time = time.time()
-
-            if epoch % 10 == 0:
-                threshold = threshold * 1.2
-                print("update threshold to ", threshold)
-                train_loader = sorted_training_set(model, train_loader0, action_dim, loss_fn, horizon, params, threshold = threshold, config = config)
             
             for i, batch in enumerate(train_loader):
+                weights = compute_weight(model, batch, batch_size)
+                weights = torch.tensor(weights, dtype=torch.float32).detach().to(device)
                 print(f"Batch {i} of {len(train_loader)}", end='\r')
                 batch = {k: v.to(device) for k, v in batch.items()}
 
-                true_actions = batch['true_actions']
-
+                true_actions = batch['true_actions'].reshape(-1, action_dim)
                 pred_actions = model(batch)
                 pred_actions = pred_actions.reshape(-1, action_dim)
                 optimizer.zero_grad()
-                loss = loss_fn(pred_actions, true_actions.reshape(-1, action_dim))
-                loss.backward()
+                loss = F.cross_entropy(pred_actions, true_actions, reduction='none')
+                weighted_loss = torch.inner(loss, weights)
+                weighted_loss.backward()
                 optimizer.step()
+                loss = loss.mean()
 
                 epoch_train_loss += loss.item() / horizon
             train_loss.append(epoch_train_loss / len(train_loader.dataset))
