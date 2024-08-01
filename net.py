@@ -62,7 +62,7 @@ class Transformer(nn.Module):
         stacked_inputs = self.embed_transition(seq) #+ self.order_embed(timesteps)
         transformer_outputs = self.transformer(inputs_embeds=stacked_inputs)
         preds = self.pred_actions(transformer_outputs['last_hidden_state'])
-
+        preds = torch.nn.functional.softmax(preds, dim=-1)
         if self.test:
             return preds[:, -1, :]
         return preds[:, 1:, :]
