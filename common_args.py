@@ -19,7 +19,7 @@ def add_dataset_args(parser):
                         default=0.1, help="Bandit arm variance")
     parser.add_argument("--cov", type=float, required=False,
                         default=0.0, help="Coverage of optimal arm")
-    parser.add_argument("--rdm_fix_ratio", type = list, required = False, default = [0.15, 0.85], help = "Ratio of random-arm and fixed-arm trajectories")
+    parser.add_argument("--rdm_fix_ratio", type = list, required = False, default = [1.0, 0.0], help = "Ratio of random-arm and fixed-arm trajectories")
 
     parser.add_argument("--env", type=str, required=False, default = "cgbandit", help="Environment")
     parser.add_argument("--env_id_start", type=int, required=False,
@@ -50,7 +50,7 @@ def add_model_args(parser):
 
 def add_train_args(parser):
     parser.add_argument("--num_epochs", type=int, required=False,
-                        default=100, help="Number of epochs")
+                        default=150, help="Number of epochs")
     parser.add_argument("--gamma", type=float, required=False,default=0.99, help="Discount factor")
 
 
