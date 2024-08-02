@@ -25,7 +25,7 @@ class Transformer(nn.Module):
         #self.context_len = self.config['context_len']
 
         config = GPT2Config(
-            n_positions=4 * (self.horizon + 1),
+            n_positions=10 * (self.horizon + 1),
             n_embd=self.n_embd,
             n_layer=self.n_layer,
             n_head=self.n_head,
@@ -40,26 +40,20 @@ class Transformer(nn.Module):
         # Set position embeddings to zero self.transformer.wte.weight.data.fill_(0)
 
         self.embed_transition = nn.Linear(
-            2 * self.state_dim + self.action_dim + 1, self.n_embd)
+            self.action_dim + 1, self.n_embd)
         self.pred_actions = nn.Linear(self.n_embd, self.action_dim)
 
     def forward(self, x):
-        query_states = x['query_states'][:, None, :]
         zeros = x['zeros'][:, None, :]
-        batch_size = query_states.shape[0]
+        batch_size = x['context_actions'].shape[0]
 
-        state_seq = torch.cat([query_states, x['context_states'][:, :, :]], dim=1)
         action_seq = torch.cat(
             [zeros[:, :, :self.action_dim], x['context_actions'][:, :, :]], dim=1)
-
-        next_state_seq = torch.cat(
-            [zeros[:, :, :self.state_dim], x['context_next_states'][:, :, :]], dim=1)
+        
         reward_seq = torch.cat([zeros[:, :, :1], x['context_rewards'][:, :, :]], dim=1)
-        # rep_seq = torch.cat([zeros[:, :, :self.rep_dim], x['context_reps'][:, :, :]], dim=1)
-        # timesteps = torch.tile(torch.arange(self.horizon + 1, device=device), (batch_size, 1))
         seq = torch.cat(
-            [state_seq, action_seq, next_state_seq, reward_seq], dim=2)
-        stacked_inputs = self.embed_transition(seq) #+ self.order_embed(timesteps)
+            [ action_seq, reward_seq], dim=2)
+        stacked_inputs = self.embed_transition(seq)
         transformer_outputs = self.transformer(inputs_embeds=stacked_inputs)
         preds = self.pred_actions(transformer_outputs['last_hidden_state'])
         preds = torch.nn.functional.softmax(preds, dim=-1)

@@ -68,7 +68,7 @@ def sorted_training_set(model, train_set, action_dim, loss_fn, horizon, params, 
     for i, batch in enumerate(train_set):
         batch = {k: v.to(device) for k, v in batch.items()}
         pred_actions_i = model(batch).detach().numpy()
-        context_actions_i = batch['context_actions'].detach().numpy()
+        context_actions_i = batch['true_actions'].detach().numpy()
         loss = []
 
         for k in range(params0['batch_size']):
@@ -225,11 +225,11 @@ def train():
 
         model = Transformer(config).to(device)
         params = {
-            'batch_size': 100,
+            'batch_size': 200,
             'shuffle': True,
             'drop_last': True,
         }
-        batch_size = 100
+        batch_size = 200
         filename = build_model_filename(env, model_config)
         log_filename = f'figs/loss/{filename}_logs.txt'
         with open(log_filename, 'w') as f:
@@ -261,7 +261,7 @@ def train():
         else:
             printw(f"Starting from epoch {start_epoch}")
         
-        threshold = 40
+        threshold = 1
         train_loader = train_loader0
         for epoch in range(start_epoch, num_epochs):
             # EVALUATION
@@ -289,10 +289,10 @@ def train():
             epoch_train_loss = 0.0
             start_time = time.time()
 
-            if epoch % 2 == 0:
-                threshold = threshold * 0.95
-                print("update threshold to ", threshold)
-                train_loader = sorted_training_set(model, train_loader0, action_dim, loss_fn, horizon, params, threshold = threshold, config = config)
+            # if epoch % 2 == 0:
+            #     threshold = threshold + 0.2
+            #     print("update threshold to ", threshold)
+            #     train_loader = sorted_training_set(model, train_loader0, action_dim, loss_fn, horizon, params, threshold = threshold, config = config)
             
             for i, batch in enumerate(train_loader):
                 print(f"Batch {i} of {len(train_loader)}", end='\r')

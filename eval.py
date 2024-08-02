@@ -176,7 +176,7 @@ if __name__ == '__main__':
         plt.cla()
         plt.close()
 
-        eval_cgbandit.cg_sample_online(model, horizon, var, means = np.array(([0.2,0.4,0.6],[0.9,0.7,0.6])), cg_time =50)
+        eval_cgbandit.cg_sample_online(model, horizon, var, means = np.array(([0.12124962, 0.84092135, 0.35824525],[0.31804136, 0.60500153, 0.81218375])), cg_time =40)
         plt.savefig(f'figs/{evals_filename}/online_sample/{save_filename}.png')
         plt.clf()
         plt.cla()

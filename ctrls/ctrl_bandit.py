@@ -130,6 +130,7 @@ class BanditTransformerController(Controller):
         self.batch_size = batch_size
         self.zeros = torch.zeros(batch_size, self.dx**2 + self.du + 1).float().to(device)
 
+
     def set_env(self, env):
         return
 
