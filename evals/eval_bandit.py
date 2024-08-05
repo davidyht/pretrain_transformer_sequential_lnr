@@ -19,6 +19,56 @@ from ctrls.ctrl_bandit import (
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def online_sample(model, means, horizon, var):
+    all_means = {}
+    env = BanditEnv(means, horizon, var=var)
+
+    controller = OptPolicy(
+        env,
+        batch_size=1)
+    cum_means = deploy_online(env, controller, horizon).T
+    all_means['opt'] = cum_means
+
+    env.reset()
+    controller = BanditTransformerController(
+        model,
+        sample=True,
+        batch_size=1)
+    cum_means = deploy_online(env, controller, horizon).T
+    all_means['Lnr'] = cum_means
+
+    env.reset()
+    controller = UCBPolicy(
+        env,
+        const=1.0,
+        batch_size=1)
+    cum_means = deploy_online(env, controller, horizon).T
+    all_means['UCB'] = cum_means
+    all_means = {k: np.array(v) for k, v in all_means.items()}
+
+    # Plot rewards of opt and lnr in the same plot
+    fig, axs = plt.subplots(1, 2, figsize=(20, 6))  # Create two subplots side by side
+
+    # Plot rewards
+    axs[0].plot(np.arange(horizon), all_means['opt'], '-', label='opt', color='black', alpha=1.0)
+    axs[0].plot(np.arange(horizon), all_means['Lnr'], 'o', label='lnr', color='blue', alpha=0.4)
+    axs[0].plot(np.arange(horizon), all_means['UCB'], '+', label='UCB', color='red', alpha=1.0)
+    axs[0].set_xlabel('Time Steps')
+    axs[0].set_ylabel('Rewards')
+    axs[0].set_title('Rewards Comparison')
+    axs[0].legend()
+
+    # Calculate and plot regrets
+    regrets = {k: all_means['opt'] - v for k, v in all_means.items() if k != 'opt'}
+    # Calculate and plot cumulative regrets
+    cumulative_regrets = {k: np.cumsum(v) for k, v in regrets.items()}
+    for k, v in cumulative_regrets.items():
+        axs[1].plot(np.arange(horizon), v, '-', label=k)
+    axs[1].set_xlabel('Time Steps')
+    axs[1].set_ylabel('Cumulative Regret')
+    axs[1].set_title('Cumulative Regret Comparison')
+    axs[1].legend()
+
 
 def online(eval_trajs, model, n_eval, horizon, var, bandit_type):
     # Dictionary to store means of different policies

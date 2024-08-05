@@ -50,7 +50,7 @@ def add_model_args(parser):
 
 def add_train_args(parser):
     parser.add_argument("--num_epochs", type=int, required=False,
-                        default=100, help="Number of epochs")
+                        default=50, help="Number of epochs")
     parser.add_argument("--gamma", type=float, required=False,default=0.99, help="Discount factor")
 
 

@@ -73,7 +73,7 @@ class UCBPolicy(Controller):
             b[c] += rewards[i]
             counts[c] += 1
 
-        b_mean = b / np.maximum(1, counts)
+        b_mean = b / np.maximum(1e-5, counts)
 
         # compute the square root of the counts but clip so it's at least one
         bons = self.const / np.maximum(1, np.sqrt(counts))
@@ -100,7 +100,7 @@ class UCBPolicy(Controller):
                 b[idx, c] = np.sum(arm_rewards)
                 counts[idx, c] = len(arm_rewards)
 
-        b_mean = b / np.maximum(1, counts)
+        b_mean = b / np.maximum(1e-5, counts)
 
         # compute the square root of the counts but clip so it's at least one
         bons = self.const / np.maximum(1, np.sqrt(counts))
