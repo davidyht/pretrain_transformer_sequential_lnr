@@ -13,7 +13,7 @@ import numpy as np
 import common_args
 import random
 from dataset import Dataset
-from net import Transformer
+from net import Transformer, Context_extractor
 from utils import (
     build_data_filename,
     build_model_filename,
@@ -198,7 +198,8 @@ def train():
             'context_len': context_len,
         }
 
-        model = Transformer(config).to(device)
+        model1 = Transformer(config).to(device)
+        model2 = Context_extractor(config).to(device)
         params = {
             'batch_size': 100,
             'shuffle': True,
@@ -224,13 +225,14 @@ def train():
         test_dataset = Dataset(path = path_test, config = config)
         train_loader0 = torch.utils.data.DataLoader(train_dataset, **params)
         test_loader = torch.utils.data.DataLoader(test_dataset, **params)
-        optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+        optimizer1 = torch.optim.AdamW(model1.parameters(), lr=lr, weight_decay=1e-4)
+        optimizer2 = torch.optim.AdamW(model2.parameters(), lr=lr, weight_decay=1e-4)
         loss_fn = torch.nn.CrossEntropyLoss(reduction='sum')
         test_loss = []
         train_loss = []
         printw("Num train batches: " + str(len(train_loader0)))
         printw("Num test batches: " + str(len(test_loader)))
-        start_epoch, model = load_checkpoints(model, filename)
+        start_epoch, model = load_checkpoints(model1, filename)
         if start_epoch == 0:
             printw("Starting from scratch.")
         else:
@@ -261,7 +263,7 @@ def train():
                         for idx in range(cg_time[i], horizon):
                             true_actions[i, idx, :] = post_opt_a[i, :]
 
-                    pred_actions = model(batch)[0]
+                    pred_actions = model1(batch)
                     true_actions = true_actions.reshape(-1, action_dim)
                     pred_actions = pred_actions.reshape(-1, action_dim)
                 
@@ -275,20 +277,17 @@ def train():
             epoch_train_loss = 0.0
             start_time = time.time()
 
-            if epoch % 10 == 0:
-                threshold = threshold * 1.02
-                print("update threshold to ", threshold)
-                train_loader = sorted_training_set(model, train_loader0, action_dim, loss_fn, horizon, params, threshold = threshold, config = config)
+#            if epoch % 10 == 0:
+#                threshold = threshold * 1.02
+#                print("update threshold to ", threshold)
+#                train_loader = sorted_training_set(model, train_loader0, action_dim, loss_fn, horizon, params, threshold = threshold, config = config)
             
             for i, batch in enumerate(train_loader):
                 print(f"Batch {i} of {len(train_loader)}", end='\r')
                 batch = {k: v.to(device) for k, v in batch.items()}
 
                 true_actions = torch.zeros((params['batch_size'], horizon, action_dim)).to(device)
-                true_context = torch.zeros((params['batch_size'], horizon, 2 * action_dim)).to(device)
-                means = batch['means']
-                num_pulls  = np.cumsum(batch['context_actions'], axis=1)
-                true_context[:, :, :action_dim] = num_pulls
+                true_context = batch['context']
                 pre_opt_a = batch['optimal_actions'][:, :action_dim]  # of size (batch_size, action_dim)
                 post_opt_a = batch['optimal_actions'][:, action_dim:]  # of size (batch_size, action_dim)
                 cg_time = batch['cg_times']  # of size (batch_size, 1)
@@ -299,29 +298,32 @@ def train():
                 for i in range(params['batch_size']):
                     for idx in range(cg_time[i]):
                         true_actions[i, idx, :] = pre_opt_a[i, :]
-                        true_context[i, idx, -action_dim:] = means[i, 0]
                     for idx in range(cg_time[i], horizon):
                         true_actions[i, idx, :] = post_opt_a[i, :]
-                        true_context[i, idx, -action_dim:] = means[i, 1]
 
-                detect_pts = [100]
+                detect_pts = [99]
                 for i in detect_pts:
                     restricted_batch = batch.copy()
                     restricted_batch['context_states'] = restricted_batch['context_states'][:, :i, :]
                     restricted_batch['context_actions'] = restricted_batch['context_actions'][:, :i, :]
                     restricted_batch['context_next_states'] = restricted_batch['context_next_states'][:, :i, :]
                     restricted_batch['context_rewards'] = restricted_batch['context_rewards'][:, :i]
+                    restricted_batch['context'] = restricted_batch['context'][:, :i, :]
 
-                    pred_actions = model(restricted_batch)[0]
+                    pred_actions = model1(restricted_batch)
                     pred_actions = pred_actions.reshape(-1, action_dim)
-                    context_pred = model(restricted_batch)[1]
+                    context_pred = model2(restricted_batch)
                     context_pred = context_pred.reshape(-1, 2 * action_dim)
-                    optimizer.zero_grad()
-                    loss = loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim)) + loss_fn(context_pred, true_context[:, :i, :].reshape(-1, 2 * action_dim))
-                    loss.backward()
-                    optimizer.step()
+                    optimizer1.zero_grad()
+                    optimizer2.zero_grad()
+                    loss1 = loss_fn(pred_actions, true_actions[:, 1:i+1, :].reshape(-1, action_dim))
+                    loss2 = loss_fn(context_pred, true_context[:, :i, :].reshape(-1, 2 * action_dim))
+                    loss1.backward()
+                    loss2.backward()
+                    optimizer1.step()
+                    optimizer2.step()
 
-                pred_actions = model(batch)[0]
+                pred_actions = model1(batch)
                 true_actions = true_actions.reshape(-1, action_dim)
                 pred_actions = pred_actions.reshape(-1, action_dim)
                 loss = loss_fn(pred_actions, true_actions)
@@ -332,7 +334,8 @@ def train():
             printw(f"\tTrain time: {end_time - start_time}")
             # LOGGING
             if (epoch + 1) % 20 == 0:
-                torch.save(model.state_dict(), f'models/{filename}_epoch{epoch+1}.pt')
+                torch.save(model1.state_dict(), f'models/{filename}_model1_epoch{epoch+1}.pt')
+                torch.save(model2.state_dict(), f'models/{filename}_model2_epoch{epoch+1}.pt')
 
             # PLOTTING
             if (epoch + 1) % 10 == 0:
@@ -345,7 +348,6 @@ def train():
                 plt.legend()
                 plt.savefig(f"figs/loss/{filename}_train_loss.png")
                 plt.clf()
-        torch.save(model.state_dict(), f'models/{filename}.pt')
         print("Done.")
 
 

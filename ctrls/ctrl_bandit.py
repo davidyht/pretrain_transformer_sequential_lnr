@@ -122,13 +122,14 @@ class UCBPolicy(Controller):
 
 class BanditTransformerController(Controller):
     def __init__(self, model, sample=True,  batch_size=1):
-        self.model = model
-        self.du = model.config['action_dim']
-        self.dx = model.config['state_dim']
-        self.H = model.horizon
+        self.trf = model[0]
+        self.extractor = model[1]
+        self.du = model[0].config['action_dim']
+        self.dx = model[0].config['state_dim']
+        self.H = model[0].horizon
         self.sample = sample
         self.batch_size = batch_size
-        self.zeros = torch.zeros(batch_size, self.dx**2 + self.du + 1).float().to(device)
+        self.zeros = torch.zeros(batch_size, 2 * self.dx + 3 * self.du + 1).float().to(device)
 
     def set_env(self, env):
         return
@@ -145,9 +146,10 @@ class BanditTransformerController(Controller):
 
         states = torch.tensor(x)[None, :].float().to(device)
         self.batch['query_states'] = states
-
-        a = self.model(self.batch)[0]
-        a = a.cpu().detach().numpy()[0]
+        c = self.extractor(self.batch)
+        self.batch['context'] = c
+        a = self.trf(self.batch)
+        a = a.cpu().detach().numpy()
 
         if self.sample:
             probs = scipy.special.softmax(a)
@@ -168,8 +170,12 @@ class BanditTransformerController(Controller):
         states = states.float().to(device)
         self.batch['query_states'] = states
 
-        a = self.model(self.batch)[0]
+        c = self.extractor(self.batch)
+        print(c.shape)
+        self.batch['context'] = c
+        a = self.trf(self.batch)
         a = a.cpu().detach().numpy()
+
         if self.batch_size == 1:
             a = a[0]
 
