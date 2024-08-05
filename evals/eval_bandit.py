@@ -19,6 +19,10 @@ from ctrls.ctrl_bandit import (
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def online_sample(model, horizon, var, means):
+    all_means = {}
+    
+
 
 def online(eval_trajs, model, n_eval, horizon, var, bandit_type):
     # Dictionary to store means of different policies

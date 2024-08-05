@@ -146,10 +146,16 @@ class BanditTransformerController(Controller):
 
         states = torch.tensor(x)[None, :].float().to(device)
         self.batch['query_states'] = states
+<<<<<<< HEAD
         c = self.extractor(self.batch)
         self.batch['context'] = c
         a = self.trf(self.batch)
         a = a.cpu().detach().numpy()
+=======
+
+        a = self.model(self.batch)[0]
+        a = a.cpu().detach().numpy()[0]
+>>>>>>> 5e47b29ce340340d802d893414bc46be0f1e3fac
 
         if self.sample:
             probs = scipy.special.softmax(a)
@@ -170,10 +176,14 @@ class BanditTransformerController(Controller):
         states = states.float().to(device)
         self.batch['query_states'] = states
 
+<<<<<<< HEAD
         c = self.extractor(self.batch)
         print(c.shape)
         self.batch['context'] = c
         a = self.trf(self.batch)
+=======
+        a = self.model(self.batch)[0]
+>>>>>>> 5e47b29ce340340d802d893414bc46be0f1e3fac
         a = a.cpu().detach().numpy()
 
         if self.batch_size == 1:

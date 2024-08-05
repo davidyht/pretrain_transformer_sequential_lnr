@@ -99,6 +99,7 @@ class Transformer(nn.Module):
         self.embed_transition = nn.Linear(
             2 * self.state_dim + 3 * self.action_dim + 1, self.n_embd)
         self.pred_actions = nn.Linear(self.n_embd, self.action_dim)
+        self.context_extractor = nn.Linear(self.n_embd, 2 * self.action_dim)
 
     def forward(self, x):
         query_states = x['query_states'][:, None, :]
@@ -120,8 +121,14 @@ class Transformer(nn.Module):
         stacked_inputs = self.embed_transition(seq) #+ self.order_embed(timesteps)
         transformer_outputs = self.transformer(inputs_embeds=stacked_inputs)
         preds = self.pred_actions(transformer_outputs['last_hidden_state'])
+        context = self.context_extractor(transformer_outputs['last_hidden_state'])
 
         if self.test:
+<<<<<<< HEAD
             return preds[:, -1, :]
         return preds[:, 1:, :] 
+=======
+            return preds[:, -1, :], context[:, -1, :]
+        return preds[:, 1:, :], context[:, 1:, :]  
+>>>>>>> 5e47b29ce340340d802d893414bc46be0f1e3fac
 
