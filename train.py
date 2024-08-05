@@ -263,11 +263,7 @@ def train():
                         for idx in range(cg_time[i], horizon):
                             true_actions[i, idx, :] = post_opt_a[i, :]
 
-<<<<<<< HEAD
                     pred_actions = model1(batch)
-=======
-                    pred_actions = model(batch)[0]
->>>>>>> 5e47b29ce340340d802d893414bc46be0f1e3fac
                     true_actions = true_actions.reshape(-1, action_dim)
                     pred_actions = pred_actions.reshape(-1, action_dim)
                 
@@ -291,14 +287,8 @@ def train():
                 batch = {k: v.to(device) for k, v in batch.items()}
 
                 true_actions = torch.zeros((params['batch_size'], horizon, action_dim)).to(device)
-<<<<<<< HEAD
                 true_context = batch['context']
-=======
-                true_context = torch.zeros((params['batch_size'], horizon, 2 * action_dim)).to(device)
                 means = batch['means']
-                num_pulls  = np.cumsum(batch['context_actions'], axis=1)
-                true_context[:, :, :action_dim] = num_pulls
->>>>>>> 5e47b29ce340340d802d893414bc46be0f1e3fac
                 pre_opt_a = batch['optimal_actions'][:, :action_dim]  # of size (batch_size, action_dim)
                 post_opt_a = batch['optimal_actions'][:, action_dim:]  # of size (batch_size, action_dim)
                 cg_time = batch['cg_times']  # of size (batch_size, 1)
@@ -314,11 +304,7 @@ def train():
                         true_actions[i, idx, :] = post_opt_a[i, :]
                         true_context[i, idx, -action_dim:] = means[i, 1]
 
-<<<<<<< HEAD
                 detect_pts = [99]
-=======
-                detect_pts = [100]
->>>>>>> 5e47b29ce340340d802d893414bc46be0f1e3fac
                 for i in detect_pts:
                     restricted_batch = batch.copy()
                     restricted_batch['context_states'] = restricted_batch['context_states'][:, :i, :]
@@ -327,7 +313,6 @@ def train():
                     restricted_batch['context_rewards'] = restricted_batch['context_rewards'][:, :i]
                     restricted_batch['context'] = restricted_batch['context'][:, :i, :]
 
-<<<<<<< HEAD
                     pred_actions = model1(restricted_batch)
                     pred_actions = pred_actions.reshape(-1, action_dim)
                     context_pred = model2(restricted_batch)
@@ -342,18 +327,6 @@ def train():
                     optimizer2.step()
 
                 pred_actions = model1(batch)
-=======
-                    pred_actions = model(restricted_batch)[0]
-                    pred_actions = pred_actions.reshape(-1, action_dim)
-                    context_pred = model(restricted_batch)[1]
-                    context_pred = context_pred.reshape(-1, 2 * action_dim)
-                    optimizer.zero_grad()
-                    loss = loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim)) + loss_fn(context_pred, true_context[:, :i, :].reshape(-1, 2 * action_dim))
-                    loss.backward()
-                    optimizer.step()
-
-                pred_actions = model(batch)[0]
->>>>>>> 5e47b29ce340340d802d893414bc46be0f1e3fac
                 true_actions = true_actions.reshape(-1, action_dim)
                 pred_actions = pred_actions.reshape(-1, action_dim)
                 loss = loss_fn(pred_actions, true_actions)
