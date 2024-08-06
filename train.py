@@ -219,7 +219,7 @@ def train():
                         true_actions[i, idx, :] = post_opt_a[i, :]
 
                 lambda0 = 0
-                detect_pts = [99]#list(range(1, 100, 20))
+                detect_pts = list(range(1, 100))
                 for i in detect_pts:
                     restricted_batch = batch.copy()
                     restricted_batch['context_states'] = restricted_batch['context_states'][:, :i, :]
@@ -245,7 +245,7 @@ def train():
             printw(f"\tTrain loss: {train_loss[-1]}")
             printw(f"\tTrain time: {end_time - start_time}")
             # LOGGING
-            if (epoch + 1) % 50 == 0:
+            if (epoch + 1) % 5 == 0:
                 torch.save(model.state_dict(), f'models/{filename}_epoch{epoch+1}.pt')
             # PLOTTING
             if (epoch + 1) % 10 == 0:
