@@ -11,7 +11,7 @@ from envs import cg_bandit, bandit_env
 from utils import build_data_filename, build_merge_data_filename
 
 
-def rollin_bandit(env, cov, exp = True, orig=False):
+def rollin_bandit(env, cov, exp = False, orig=False):
     H = env.H
     opt_a_index = env.opt_a_index
     xs, us, xps, rs = [], [], [], []
@@ -48,7 +48,7 @@ def rollin_bandit(env, cov, exp = True, orig=False):
     xs, us, xps, rs = np.array(xs), np.array(us), np.array(xps), np.array(rs)
     return xs, us, xps, rs
 
-def rollin_cgbandit(env, cov, exp = True, orig=False):
+def rollin_cgbandit(env, cov, exp = False, orig=False):
     H = env.H
     T = env.cg_time
     pre_opt_a_index = env.pre_opta_index
@@ -105,6 +105,7 @@ def rollin_cgbandit(env, cov, exp = True, orig=False):
 
 def generate_bandit_histories_from_envs(envs, n_hists, n_samples, cov, type):
     trajs = []
+    random_vector = np.random.uniform(0, 0.5, n_hists)
     for env in envs:
         for j in range(n_hists):
             (
@@ -112,7 +113,7 @@ def generate_bandit_histories_from_envs(envs, n_hists, n_samples, cov, type):
                 context_actions,
                 context_next_states,
                 context_rewards,
-            ) = rollin_bandit(env, cov=cov)
+            ) = rollin_bandit(env, cov=random_vector[j])
             for k in range(n_samples):
                 query_state = np.array([1])
                 optimal_action = np.concatenate((env.opt_a,env.opt_a),axis=0)
@@ -131,6 +132,7 @@ def generate_bandit_histories_from_envs(envs, n_hists, n_samples, cov, type):
 
 def generate_cgbandit_histories_from_envs(envs, n_hists, n_samples, cov, type):
     trajs = []
+    random_vector = np.random.rand(n_hists)
     for env in envs:
         for j in range(n_hists):
             (
@@ -138,7 +140,7 @@ def generate_cgbandit_histories_from_envs(envs, n_hists, n_samples, cov, type):
                 context_actions,
                 context_next_states,
                 context_rewards,
-            ) = rollin_cgbandit(env, cov=cov)
+            ) = rollin_cgbandit(env, cov=random_vector[j])
             for k in range(n_samples):
                 query_state = np.array([1])
                 optimal_action = np.concatenate((env.pre_opt_a,env.post_opt_a),axis=0)

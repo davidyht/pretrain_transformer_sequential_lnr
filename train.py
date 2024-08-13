@@ -219,7 +219,7 @@ def train():
                         true_actions[i, idx, :] = post_opt_a[i, :]
 
                 lambda0 = 0
-                detect_pts = list(range(1, 100))
+                detect_pts = [99]
                 for i in detect_pts:
                     restricted_batch = batch.copy()
                     restricted_batch['context_states'] = restricted_batch['context_states'][:, :i, :]
