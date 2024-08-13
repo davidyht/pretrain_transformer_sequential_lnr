@@ -319,7 +319,7 @@ def train():
                     context_pred = context_pred.reshape(-1, 2 * action_dim)
                     optimizer1.zero_grad()
                     optimizer2.zero_grad()
-                    loss1 = loss_fn(pred_actions, true_actions[:, 1:i+1, :].reshape(-1, action_dim))
+                    loss1 = loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))
                     loss2 = loss_fn(context_pred, true_context[:, :i, :].reshape(-1, 2 * action_dim))
                     loss1.backward()
                     loss2.backward()
