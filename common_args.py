@@ -1,7 +1,7 @@
 
 def add_dataset_args(parser):
     parser.add_argument("--envs", type=int, required=False,
-                        default=10000, help="Envs")
+                        default=1000, help="Envs")
     parser.add_argument("--envs_eval", type=int, required=False,
                         default=100, help="Eval Envs")
     parser.add_argument("--hists", type=int, required=False,
@@ -19,7 +19,7 @@ def add_dataset_args(parser):
                         default=0.1, help="Bandit arm variance")
     parser.add_argument("--cov", type=float, required=False,
                         default=0.0, help="Coverage of optimal arm")
-    parser.add_argument("--rdm_fix_ratio", type = list, required = False, default = [1.0, 0.0], help = "Ratio of random-arm and fixed-arm trajectories")
+    parser.add_argument("--rdm_fix_ratio", type = list, required = False, default = [0.5, 0.5], help = "Ratio of random-arm and fixed-arm trajectories")
 
     parser.add_argument("--env", type=str, required=False, default = "cgbandit", help="Environment")
     parser.add_argument("--env_id_start", type=int, required=False,
@@ -34,9 +34,9 @@ def add_dataset_args(parser):
 
 def add_model_args(parser):
     parser.add_argument("--embd", type=int, required=False,
-                        default=32, help="Embedding size")
+                        default=64, help="Embedding size")
     parser.add_argument("--head", type=int, required=False,
-                        default=1, help="Number of heads")
+                        default=8, help="Number of heads")
     parser.add_argument("--layer", type=int, required=False,
                         default=4, help="Number of layers")
     parser.add_argument("--context_len", type=int, required=False, default = 100, help = "Context length of transformer")
@@ -56,7 +56,7 @@ def add_train_args(parser):
 
 def add_eval_args(parser):
     parser.add_argument("--epoch", type=int, required=False,
-                        default=-1, help="Epoch to evaluate")
+                        default=40, help="Epoch to evaluate")
     parser.add_argument("--test_cov", type=float,
                         required=False, default=-1.0,
                         help="Test coverage (for bandit)")

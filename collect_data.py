@@ -48,7 +48,7 @@ def rollin_bandit(env, cov, exp = False, orig=False):
     xs, us, xps, rs = np.array(xs), np.array(us), np.array(xps), np.array(rs)
     return xs, us, xps, rs
 
-def rollin_cgbandit(env, cov, exp = False, orig=False):
+def rollin_cgbandit(env, cov, exp = True, orig=False):
     H = env.H
     T = env.cg_time
     pre_opt_a_index = env.pre_opta_index
@@ -70,8 +70,9 @@ def rollin_cgbandit(env, cov, exp = False, orig=False):
         probs = np.random.dirichlet(alpha)
         pre_probs2 = np.zeros(env.dim)
         pre_probs2[pre_opt_a_index] = 1.0
+        rand_index = np.random.choice(np.arange(env.dim))
         post_probs2 = np.zeros(env.dim)
-        post_probs2[post_opt_a_index] = 1.0
+        post_probs2[rand_index] = 1.0
         pre_probs = (1 - cov) * probs + cov * pre_probs2
         post_probs = (1 - cov) * probs + cov * post_probs2
         
