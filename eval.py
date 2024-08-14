@@ -176,11 +176,14 @@ if __name__ == '__main__':
         plt.cla()
         plt.close()
 
-        eval_cgbandit.cg_sample_online(model, horizon, var, means = np.array(([0.12124962, 0.84092135, 0.35824525],[0.31804136, 0.60500153, 0.81218375])), cg_time =40)
-        plt.savefig(f'figs/{evals_filename}/online_sample/{save_filename}.png')
-        plt.clf()
-        plt.cla()
-        plt.close()
+        means = 0.1 * np.random.randint(2, 8, size = (10, 2, dim))
+        cg_times = np.random.randint(20, 80, size = 10)
+        for j in range(10):
+            eval_cgbandit.cg_sample_online(model, horizon, var, means = means[j], cg_time = cg_times[j])
+            plt.savefig(f'figs/{evals_filename}/online_sample/{save_filename}_{means[j]}_{cg_times[j]}.png')
+            plt.clf()
+            plt.cla()
+            plt.close()
 
         # eval_cgbandit.cg_offline_graph(eval_trajs, model, **config)
         # plt.savefig(f'figs/{evals_filename}/graph/{save_filename}_graph.png')

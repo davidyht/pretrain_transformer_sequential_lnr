@@ -19,6 +19,7 @@ from utils import (
     build_model_filename,
     convert_to_tensor
 )
+from torch.utils.data import DataLoader
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -45,14 +46,15 @@ def load_checkpoints(model, filename):
         start_epoch = 0
     return start_epoch, model
 
-def sorted_training_set(model, train_set, action_dim, loss_fn, horizon, params, threshold, config):
+def sorted_training_set(model, train_set, action_dim, loss_fn, horizon, params, config, k):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     params0 = {
         'batch_size': 5,
         'shuffle': True,
         'drop_last': True,
     }
-    train_set = torch.utils.data.DataLoader(train_set.dataset, **params0)
+    train_set = DataLoader(train_set.dataset, **params0)
+    loss_val = []
 
     context_states = []
     context_actions = []
@@ -62,67 +64,92 @@ def sorted_training_set(model, train_set, action_dim, loss_fn, horizon, params, 
     query_states = []
     optimal_actions = []
     cg_times = []
-    truncate_index = []
+    # truncate_index = []
 
-    
     for i, batch in enumerate(train_set):
+
         batch = {k: v.to(device) for k, v in batch.items()}
-        pred_actions_i = model(batch).detach().numpy()
-        context_actions_i = batch['true_actions'].detach().numpy()
-        loss = []
+        pred_actions_i = model(batch)#.detach().cpu().numpy()
+        context_actions_i = batch['true_actions']#.detach().cpu().numpy()
+        pred_actions_i = pred_actions_i.reshape(-1, action_dim)
+        context_actions_i = context_actions_i.reshape(-1, action_dim)
+        loss = loss_fn(pred_actions_i, context_actions_i)/ pred_actions_i.shape[0]
+        loss = loss.item()  
+        loss_val.append(loss)
 
-        for k in range(params0['batch_size']):
-            prob = np.diagonal(np.inner(pred_actions_i[k], context_actions_i[k]))
-            prob_log = -np.log(prob)
-            loss.append(np.cumsum(prob))
-        loss = np.array(loss)
-        loss = np.mean(loss, axis=0)
-        for j in range(horizon):
-            if loss[j] > threshold:
-                break
-            
-        if True:
-            truncate_index.append(j)
+    print("Sorting")
+    loss_cal = np.array(loss_val)
+    print("Winner number:", int(0.01 * len(loss_val)))
+    lowest_indices = np.argsort(loss_cal)[:int(0.01 * len(loss_val))]
 
-            # Truncate batch[''] at time step j
-            batch['context_states'] = batch['context_states'][:, :j+1, :]
-            batch['context_actions'] = batch['context_actions'][:, :j+1, :]
-            batch['true_actions'] = batch['true_actions'][:, :j+1, :]
-            batch['context_next_states'] = batch['context_next_states'][:, :j+1, :]
-            batch['context_rewards'] = batch['context_rewards'][:, :j+1, :]
+    print("Sorting")
+    for i, batch in enumerate(train_set):
+        if i not in lowest_indices:
+            continue
 
-            # Pad the rest with 0
-            pad_length = horizon - j - 1
-            batch['context_states'] = torch.cat([batch['context_states'], torch.zeros((params0['batch_size'], pad_length, 1)).to(device)], dim=1)
-            batch['context_actions'] = torch.cat([batch['context_actions'], torch.zeros((params0['batch_size'], pad_length, action_dim)).to(device)], dim=1)
-            batch['true_actions'] = torch.cat([batch['true_actions'], torch.zeros((params0['batch_size'], pad_length, action_dim)).to(device)], dim=1)
-            batch['context_next_states'] = torch.cat([batch['context_next_states'], torch.zeros((params0['batch_size'], pad_length, 1)).to(device)], dim=1)
-            batch['context_rewards'] = torch.cat([batch['context_rewards'], torch.zeros((params0['batch_size'], pad_length, 1)).to(device)], dim=1)
+        context_states.append(batch['context_states'].cpu().numpy())
+        context_actions.append(batch['context_actions'].cpu().numpy())
+        true_actions.append(batch['true_actions'].cpu().numpy())
+        context_next_states.append(batch['context_next_states'].cpu().numpy())
+        context_rewards.append(batch['context_rewards'].cpu().numpy())
+        query_states.append(batch['query_states'].cpu().numpy())
+        optimal_actions.append(batch['optimal_actions'].cpu().numpy())
+        cg_times.append(batch['cg_times'].cpu().numpy())
 
-            context_states.append(batch['context_states'])
-            context_actions.append(batch['context_actions'])
-            true_actions.append(batch['true_actions'])
-            context_next_states.append(batch['context_next_states'])
-            context_rewards.append(batch['context_rewards'])
-            query_states.append(batch['query_states'])
-            optimal_actions.append(batch['optimal_actions'])
-            cg_times.append(batch['cg_times'])
+    print("Sorting done")
+
+        # loss = np.zeros((params0['batch_size'], horizon))
+
+        # for k in range(params0['batch_size']):
+        #     prob = np.diagonal(np.inner(pred_actions_i[k], context_actions_i[k]))
+        #     prob_log = -np.log(prob)
+        #     loss[k] = np.cumsum(prob_log)
+
+        # mean_loss = np.mean(loss, axis=0)
+        # j = np.argmax(mean_loss > threshold)
+
+        # if j <= 80:
+        #     continue
+
+        # truncate_index.append(j)
+        # selected_batches += 1
+
+        # # Truncate batch at time step j
+        # for key in ['context_states', 'context_actions', 'true_actions', 'context_next_states', 'context_rewards']:
+        #     batch[key] = batch[key][:, :j+1, :]
+
+        # # Pad the rest with 0
+        # pad_length = horizon - j - 1
+        # for key, dim in zip(['context_states', 'context_next_states', 'context_rewards'], [1, 1, 1]):
+        #     batch[key] = torch.cat([batch[key], torch.zeros((params0['batch_size'], pad_length, dim)).to(device)], dim=1)
+        # for key in ['context_actions', 'true_actions']:
+        #     batch[key] = torch.cat([batch[key], torch.zeros((params0['batch_size'], pad_length, action_dim)).to(device)], dim=1)
+
+        # context_states.append(batch['context_states'].cpu().numpy())
+        # context_actions.append(batch['context_actions'].cpu().numpy())
+        # true_actions.append(batch['true_actions'].cpu().numpy())
+        # context_next_states.append(batch['context_next_states'].cpu().numpy())
+        # context_rewards.append(batch['context_rewards'].cpu().numpy())
+        # query_states.append(batch['query_states'].cpu().numpy())
+        # optimal_actions.append(batch['optimal_actions'].cpu().numpy())
+        # cg_times.append(batch['cg_times'].cpu().numpy())
 
     context_states = np.concatenate(context_states, axis=0)
     context_actions = np.concatenate(context_actions, axis=0)
     true_actions = np.concatenate(true_actions, axis=0)
     context_next_states = np.concatenate(context_next_states, axis=0)
     context_rewards = np.concatenate(context_rewards, axis=0)
-    truncate_mean = np.mean(truncate_index)
-    highest = np.max(truncate_index)
-    highest_num = np.sum(np.array(truncate_index) == highest)
-    print("Highest: ", highest, "Highest num: ", highest_num)
+    # truncate_mean = np.mean(truncate_index)
+    # highest = np.max(truncate_index)
+    # highest_num = np.sum(np.array(truncate_index) == highest)
+    # print("Highest: ", highest, "Highest num: ", highest_num)
 
     if len(context_rewards.shape) < 3:
         context_rewards = context_rewards[:, :, None]
     query_states = np.concatenate(query_states, axis=0)
     optimal_actions = np.concatenate(optimal_actions, axis=0)
-    cg_times = np.concatenate(cg_times, axis=0)
+
+    cg_times = np.concatenate(cg_times, axis = 0)
 
     dataset = Dataset(
          data = {
@@ -138,8 +165,9 @@ def sorted_training_set(model, train_set, action_dim, loss_fn, horizon, params, 
         , config = config
     )
     print("New training set size: ", len(dataset))
-    print("Truncate mean: ", truncate_mean)
-    return torch.utils.data.DataLoader(dataset, **params)
+    # print("Truncate mean: ", truncate_mean)
+    return DataLoader(dataset, **params)
+    
 
 def train():
     if __name__ == '__main__':
@@ -261,38 +289,35 @@ def train():
         else:
             printw(f"Starting from epoch {start_epoch}")
         
-        threshold = 1
         train_loader = train_loader0
         for epoch in range(start_epoch, num_epochs):
-            # EVALUATION
-            printw(f"Epoch: {epoch + 1}")
-            start_time = time.time()
-            with torch.no_grad():
-                epoch_test_loss = 0.0
-                for i, batch in enumerate(test_loader):
-                    print(f"Batch {i} of {len(test_loader)}", end='\r')
+            # # EVALUATION
+            # printw(f"Epoch: {epoch + 1}")
+            # start_time = time.time()
+            # with torch.no_grad():
+            #     epoch_test_loss = 0.0
+            #     for i, batch in enumerate(test_loader):
+            #         print(f"Batch {i} of {len(test_loader)}", end='\r')
 
-                    batch = {k: v.to(device) for k, v in batch.items()}
-                    true_actions = batch['true_actions']
+            #         batch = {k: v.to(device) for k, v in batch.items()}
+            #         true_actions = batch['true_actions']
 
-                    pred_actions = model(batch)
-                    true_actions = true_actions.reshape(-1, action_dim)
-                    pred_actions = pred_actions.reshape(-1, action_dim)
+            #         pred_actions = model(batch)
+            #         true_actions = true_actions.reshape(-1, action_dim)
+            #         pred_actions = pred_actions.reshape(-1, action_dim)
                 
-                    loss = loss_fn(pred_actions, true_actions)
-                    epoch_test_loss += loss.item() / horizon
-            test_loss.append(epoch_test_loss / len(test_dataset))
-            end_time = time.time()
-            printw(f"\tTest loss: {test_loss[-1]}")
-            printw(f"\tEval time: {end_time - start_time}")
+            #         loss = loss_fn(pred_actions, true_actions)
+            #         epoch_test_loss += loss.item() / horizon
+            # test_loss.append(epoch_test_loss / len(test_dataset))
+            # end_time = time.time()
+            # printw(f"\tTest loss: {test_loss[-1]}")
+            # printw(f"\tEval time: {end_time - start_time}")
             # TRAINING
             epoch_train_loss = 0.0
             start_time = time.time()
 
-            # if epoch % 2 == 0:
-            #     threshold = threshold + 0.2
-            #     print("update threshold to ", threshold)
-            #     train_loader = sorted_training_set(model, train_loader0, action_dim, loss_fn, horizon, params, threshold = threshold, config = config)
+            if epoch % 10 == 0:
+                 train_loader = sorted_training_set(model, train_loader0, action_dim, loss_fn, horizon, params, config = config, k = 100)
             
             for i, batch in enumerate(train_loader):
                 print(f"Batch {i} of {len(train_loader)}", end='\r')
@@ -318,12 +343,12 @@ def train():
 
             # PLOTTING
             if (epoch + 1) % 10 == 0:
-                printw(f"Test Loss:        {test_loss[-1]}")
+                # printw(f"Test Loss:        {test_loss[-1]}")
                 printw(f"Train Loss:       {train_loss[-1]}")
                 printw("\n")
                 plt.yscale('log')
                 plt.plot(train_loss[1:], label="Train Loss")
-                plt.plot(test_loss[1:], label="Test Loss")
+                # plt.plot(test_loss[1:], label="Test Loss")
                 plt.legend()
                 plt.savefig(f"figs/loss/{filename}_train_loss.png")
                 plt.clf()

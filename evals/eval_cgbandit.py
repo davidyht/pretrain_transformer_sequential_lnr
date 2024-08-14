@@ -145,10 +145,10 @@ def cg_sample_online(model, horizon, var, means, cg_time):
     fig, axs = plt.subplots(1, 2, figsize=(20, 6))  # Create two subplots side by side
 
     # Plot rewards
-    axs[0].plot(np.arange(horizon), all_means['opt'], '-', label='opt', color='black')
-    axs[0].plot(np.arange(horizon), all_means['Lnr'], '.', label='lnr', color='blue')
+    axs[0].plot(np.arange(horizon), all_means['opt'], '-', label='opt', color='black', alpha = 1.0)
+    axs[0].plot(np.arange(horizon), all_means['Lnr'], 'o', label='lnr', color='blue', alpha = 0.4)
     # axs[0].plot(np.arange(horizon), all_means['Exp3'], '.', label = 'Exp3', color='orange')
-    axs[0].plot(np.arange(horizon), all_means['SlidingWindow'], '.', label = 'SlidingWindow', color='green')
+    axs[0].plot(np.arange(horizon), all_means['SlidingWindow'], '+', label = 'SlidingWindow', color='red', alpha = 1.0)
     axs[0].set_xlabel('Time Steps')
     axs[0].set_ylabel('Rewards')
     axs[0].set_title('Rewards Comparison')
