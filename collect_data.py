@@ -29,8 +29,11 @@ def rollin_bandit(env, cov, exp = False, orig=False):
         alpha = np.ones(env.dim)
         probs = np.random.dirichlet(alpha)
         probs2 = np.zeros(env.dim)
-        probs2[opt_a_index] = 1.0
-        probs = (1 - cov) * probs + cov * probs2
+        rand_num = np.random.rand()
+        if rand_num < 0.9:
+            probs2[opt_a_index] = 1.0
+        else:
+            probs = (1 - cov) * probs + cov * probs2
         
 
     for h in range(H):
@@ -48,7 +51,7 @@ def rollin_bandit(env, cov, exp = False, orig=False):
     xs, us, xps, rs = np.array(xs), np.array(us), np.array(xps), np.array(rs)
     return xs, us, xps, rs
 
-def rollin_cgbandit(env, cov, exp = False, orig=False):
+def rollin_cgbandit(env, cov, exp = True, orig=False):
     H = env.H
     T = env.cg_time
     pre_opt_a_index = env.pre_opta_index
@@ -64,20 +67,29 @@ def rollin_cgbandit(env, cov, exp = False, orig=False):
         rand_index = np.random.choice(np.arange(env.dim))
         probs2[rand_index] = 1.0
         pre_probs = (1 - cov) * probs + cov * probs2
-        probs2 = np.zeros(env.dim)
-        rand_index2 = np.random.choice(np.arange(env.dim))
-        probs2[rand_index2] = 1.0
-        post_probs = (1 - cov) * probs + cov * probs2
+        rand_num = np.random.rand()
+        if rand_num >= 0.9:
+            post_probs = pre_probs
+        else:
+            probs2 = np.zeros(env.dim)
+            rand_index2 = np.random.choice(np.arange(env.dim))
+            probs2[rand_index2] = 1.0
+            post_probs = (1 - cov) * probs + cov * probs2
     else:
         alpha = np.ones(env.dim)
         probs = np.random.dirichlet(alpha)
         pre_probs2 = np.zeros(env.dim)
         pre_probs2[pre_opt_a_index] = 1.0
+        pre_probs = (1 - cov) * probs + cov * pre_probs2
         rand_index = np.random.choice(np.arange(env.dim))
         post_probs2 = np.zeros(env.dim)
-        post_probs2[rand_index] = 1.0
-        pre_probs = (1 - cov) * probs + cov * pre_probs2
-        post_probs = (1 - cov) * probs + cov * post_probs2
+        rand_num = np.random.rand()
+        if rand_num >= 0.9:
+            post_probs2[post_opt_a_index] = 1.0
+            post_probs = (1 - cov) * probs + cov * post_probs2
+        else:
+            post_probs = pre_probs
+        
         
 
     for h in range(T):
