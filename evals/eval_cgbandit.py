@@ -63,7 +63,6 @@ def cg_online(eval_trajs, model, n_eval, horizon, var):
     # Convert to numpy arrays
     all_means = {k: np.array(v) for k, v in all_means.items()}
     all_means_diff = {k: all_means['opt'] - v for k, v in all_means.items()}
-    print(all_means_diff['Lnr'][6])
 
     # Calculate means and standard errors
     means = {k: np.mean(v, axis=0) for k, v in all_means_diff.items()}
@@ -158,7 +157,6 @@ def cg_sample_online(model, horizon, var, means, cg_time):
     regrets = {k: all_means['opt'] - v for k, v in all_means.items() if k != 'opt'}
     # Calculate and plot cumulative regrets
     cumulative_regrets = {k: np.cumsum(v) for k, v in regrets.items()}
-    print(regrets['Lnr'])
     for k, v in cumulative_regrets.items():
         axs[1].plot(np.arange(horizon), v, '-', label=k)
     axs[1].set_xlabel('Time Steps')

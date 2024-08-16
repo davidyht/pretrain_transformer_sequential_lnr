@@ -79,8 +79,9 @@ def sorted_training_set(model, train_set, action_dim, loss_fn, horizon, params, 
 
     print("Sorting")
     loss_cal = np.array(loss_val)
-    print("Winner number:", int(0.01 * len(loss_val)))
-    lowest_indices = np.argsort(loss_cal)[:int(0.01 * len(loss_val))]
+
+    lowest_indices = np.argsort(loss_cal)[:int(0.1 * len(loss_val))]
+    print("Loss threshold:", loss_val[lowest_indices[-1]])
 
     print("Sorting")
     for i, batch in enumerate(train_set):
@@ -253,11 +254,11 @@ def train():
 
         model = Transformer(config).to(device)
         params = {
-            'batch_size': 200,
+            'batch_size': 20,
             'shuffle': True,
             'drop_last': True,
         }
-        batch_size = 200
+        batch_size = 20
         filename = build_model_filename(env, model_config)
         log_filename = f'figs/loss/{filename}_logs.txt'
         with open(log_filename, 'w') as f:
@@ -291,33 +292,34 @@ def train():
         
         train_loader = train_loader0
         for epoch in range(start_epoch, num_epochs):
-            # # EVALUATION
-            # printw(f"Epoch: {epoch + 1}")
-            # start_time = time.time()
-            # with torch.no_grad():
-            #     epoch_test_loss = 0.0
-            #     for i, batch in enumerate(test_loader):
-            #         print(f"Batch {i} of {len(test_loader)}", end='\r')
+            # EVALUATION
+            printw(f"Epoch: {epoch + 1}")
+            start_time = time.time()
+            with torch.no_grad():
+                epoch_test_loss = 0.0
+                for i, batch in enumerate(test_loader):
+                    print(f"Batch {i} of {len(test_loader)}", end='\r')
 
-            #         batch = {k: v.to(device) for k, v in batch.items()}
-            #         true_actions = batch['true_actions']
+                    batch = {k: v.to(device) for k, v in batch.items()}
+                    true_actions = batch['true_actions']
 
-            #         pred_actions = model(batch)
-            #         true_actions = true_actions.reshape(-1, action_dim)
-            #         pred_actions = pred_actions.reshape(-1, action_dim)
+                    pred_actions = model(batch)
+                    true_actions = true_actions.reshape(-1, action_dim)
+                    pred_actions = pred_actions.reshape(-1, action_dim)
                 
-            #         loss = loss_fn(pred_actions, true_actions)
-            #         epoch_test_loss += loss.item() / horizon
-            # test_loss.append(epoch_test_loss / len(test_dataset))
-            # end_time = time.time()
-            # printw(f"\tTest loss: {test_loss[-1]}")
-            # printw(f"\tEval time: {end_time - start_time}")
+                    loss = loss_fn(pred_actions, true_actions)
+                    epoch_test_loss += loss.item() / horizon
+            test_loss.append(epoch_test_loss / len(test_dataset))
+            end_time = time.time()
+            printw(f"\tTest loss: {test_loss[-1]}")
+            printw(f"\tEval time: {end_time - start_time}")
             # TRAINING
             epoch_train_loss = 0.0
             start_time = time.time()
 
-            if epoch % 10 == 0:
-                 train_loader = sorted_training_set(model, train_loader0, action_dim, loss_fn, horizon, params, config = config, k = 100)
+            # if epoch % 2 == 0:
+            #      train_loader = sorted_training_set(
+            # model, train_loader0, action_dim, loss_fn, horizon, params, config = config, k = 100)
             
             for i, batch in enumerate(train_loader):
                 print(f"Batch {i} of {len(train_loader)}", end='\r')

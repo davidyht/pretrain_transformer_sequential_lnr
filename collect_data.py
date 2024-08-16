@@ -11,7 +11,7 @@ from envs import cg_bandit, bandit_env
 from utils import build_data_filename, build_merge_data_filename
 
 
-def rollin_bandit(env, cov, exp = False, orig=False):
+def rollin_bandit(env, cov, exp = True, orig=False):
     H = env.H
     opt_a_index = env.opt_a_index
     xs, us, xps, rs = [], [], [], []
@@ -29,7 +29,12 @@ def rollin_bandit(env, cov, exp = False, orig=False):
         alpha = np.ones(env.dim)
         probs = np.random.dirichlet(alpha)
         probs2 = np.zeros(env.dim)
-        probs2[opt_a_index] = 1.0
+        rand_num = np.random.rand()
+        if rand_num >= 0.5:
+            rand_index = np.random.choice(np.arange(env.dim))
+            probs2[rand_index] = 1.0
+        else:
+            probs2[opt_a_index] = 1.0
         probs = (1 - cov) * probs + cov * probs2
         
 
