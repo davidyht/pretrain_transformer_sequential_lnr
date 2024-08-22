@@ -9,7 +9,7 @@ def add_dataset_args(parser):
     parser.add_argument("--samples", type=int,
                         required=False, default=1, help="Samples")
     parser.add_argument("--H", type=int, required=False,
-                        default=100, help="Context horizon")
+                        default=35, help="Context horizon")
     parser.add_argument("--dim", type=int, required=False,
                         default=3, help="Dimension")
     parser.add_argument("--lin_d", type=int, required=False,
@@ -56,7 +56,7 @@ def add_train_args(parser):
 
 def add_eval_args(parser):
     parser.add_argument("--epoch", type=int, required=False,
-                        default=60, help="Epoch to evaluate")
+                        default=-1, help="Epoch to evaluate")
     parser.add_argument("--test_cov", type=float,
                         required=False, default=-1.0,
                         help="Test coverage (for bandit)")

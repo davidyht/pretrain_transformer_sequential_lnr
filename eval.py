@@ -177,7 +177,7 @@ if __name__ == '__main__':
         plt.close()
 
         means = 0.1 * np.random.randint(3, 9, size=(10,2,3))
-        cg_time = np.random.randint(20, 80, size = 10)
+        cg_time = np.random.randint(10, 30, size = 10)
         for j in range(10):
             eval_cgbandit.cg_sample_online(model, horizon = horizon, var = var, means = means[j], cg_time = cg_time[j])
             plt.savefig(f'figs/{evals_filename}/online_sample/{save_filename}_{means[j]}.png')

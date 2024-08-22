@@ -218,8 +218,7 @@ def train():
                     for idx in range(cg_time[i], horizon):
                         true_actions[i, idx, :] = post_opt_a[i, :]
 
-                lambda0 = 0
-                detect_pts = list(range(1, 35, 1)) + [99]
+                detect_pts = list(range(1,horizon))
                 for i in detect_pts:
                     restricted_batch = batch.copy()
                     restricted_batch['context_states'] = restricted_batch['context_states'][:, :i, :]
@@ -231,7 +230,7 @@ def train():
                     context_actions = restricted_batch['context_actions']
                     pred_actions = pred_actions.reshape(-1, action_dim)
                     optimizer.zero_grad()
-                    loss = loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim)) + lambda0 * loss_fn(pred_actions, context_actions[:, :i, :].reshape(-1, action_dim))
+                    loss = loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))
                     loss.backward()
                     optimizer.step()
 
