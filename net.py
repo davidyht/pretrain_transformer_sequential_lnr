@@ -59,8 +59,8 @@ class Context_extractor(nn.Module):
         transformer_outputs = self.transformer(inputs_embeds=stacked_inputs)
         preds = self.pred_context(transformer_outputs['last_hidden_state'])
 
-        #if self.test:
-        #    return preds[:, -1, :]
+        if self.test:
+            return preds[:, -1, :]
         return preds[:, 1:, :] 
 
 class Transformer(nn.Module):

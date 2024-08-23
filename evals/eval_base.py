@@ -48,6 +48,7 @@ def deploy_online_vec(vec_env, controller, horizon, include_meta=False):
     context_actions = np.zeros((num_envs, horizon, vec_env.du))
     context_next_states = np.zeros((num_envs, horizon, vec_env.dx))
     context_rewards = np.zeros((num_envs, horizon, 1))
+    context = np.zeros((num_envs, horizon, 2 * vec_env.du))
 
     cum_means = []
     print("Deploying online vectorized...")
@@ -57,11 +58,12 @@ def deploy_online_vec(vec_env, controller, horizon, include_meta=False):
             'context_actions': context_actions[:, :h, :],
             'context_next_states': context_next_states[:, :h, :],
             'context_rewards': context_rewards[:, :h, :],
+            'context': context[:, :h, :],   
         }
 
         controller.set_batch_numpy_vec(batch)
 
-        states_lnr, actions_lnr, next_states_lnr, rewards_lnr = vec_env.deploy(
+        states_lnr, actions_lnr, next_states_lnr, rewards_lnr, context_lnr = vec_env.deploy(
             controller)
         
         # Update context variables
@@ -69,9 +71,13 @@ def deploy_online_vec(vec_env, controller, horizon, include_meta=False):
         context_actions[:, h, :] = actions_lnr
         context_next_states[:, h, :] = next_states_lnr
         context_rewards[:, h, :] = rewards_lnr[:, None]
+        context[:, h, :] = context_lnr
 
         mean = vec_env.get_arm_value(actions_lnr)
         cum_means.append(mean)
+    print(context_actions[2,:,:])
+    print(context_rewards[2,:,:])
+    print(context[2,:,:])
 
     print("Deployed online vectorized")
 
@@ -84,5 +90,6 @@ def deploy_online_vec(vec_env, controller, horizon, include_meta=False):
             'context_actions': context_actions,
             'context_next_states': context_next_states,
             'context_rewards': context_rewards,
+            'context': context,
         }
         return cum_means, meta

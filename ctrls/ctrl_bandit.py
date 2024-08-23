@@ -31,8 +31,9 @@ class OptPolicy(Controller):
 
     def act_numpy_vec(self, x):
         opt_as = [ env.opt_a for env in self.env ]
+        c = np.zeros((self.batch_size, 2 * self.env[0].dim))
 
-        return np.stack(opt_as, axis=0)
+        return np.stack(opt_as, axis=0), c
         # return np.tile(self.env.opt_a, (self.batch_size, 1))
 
 
@@ -88,6 +89,7 @@ class UCBPolicy(Controller):
     def act_numpy_vec(self, x):
         actions = self.batch['context_actions']
         rewards = self.batch['context_rewards']
+        context = np.zeros((self.batch_size, 2 * self.env.dim))
 
         b = np.zeros((self.batch_size, self.env.dim))
         counts = np.zeros((self.batch_size, self.env.dim))
@@ -117,7 +119,7 @@ class UCBPolicy(Controller):
         a = np.zeros((self.batch_size, self.env.dim))
         a[np.arange(self.batch_size), i] = 1.0
         self.a = a
-        return self.a
+        return self.a, context
 
 
 class BanditTransformerController(Controller):
@@ -171,9 +173,20 @@ class BanditTransformerController(Controller):
         states = states.float().to(device)
         self.batch['query_states'] = states
 
-        c = self.extractor(self.batch)
+        context_actions = self.batch['context_actions'].cpu().detach().numpy()
+        context_rewards = self.batch['context_rewards'].cpu().detach().numpy().squeeze()
 
-        self.batch['context'] = c
+        c = np.zeros((self.batch_size, 2 * self.du))
+        c[:, :self.du] = np.sum(context_actions, axis = 1)
+        for i in range(self.du):
+            num = c[:, :self.du]
+            rew_sum = np.expand_dims(context_rewards, axis=-1) * context_actions
+            rew_sum = np.sum(rew_sum, axis=1)
+            c[:, self.du:] = rew_sum / (num + 1e-6)
+
+        # c = self.extractor(self.batch)
+        # c = c.cpu().detach().numpy()
+
         a = self.trf(self.batch)
         a = a.cpu().detach().numpy()
 
@@ -188,4 +201,4 @@ class BanditTransformerController(Controller):
 
         actions = np.zeros((self.batch_size, self.du))
         actions[np.arange(self.batch_size), action_indices] = 1.0
-        return actions
+        return actions, c

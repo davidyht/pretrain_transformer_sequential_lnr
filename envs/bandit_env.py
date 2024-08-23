@@ -119,13 +119,15 @@ class BanditEnvVec(BaseEnv):
         xps = []
         us = []
         rs = []
+        cs = []
         done = False
 
         while not done:
-            u = ctrl.act_numpy_vec(x)
+            u, c = ctrl.act_numpy_vec(x)
 
             xs.append(x)
             us.append(u)
+            cs.append(c)
 
             x, r, done, _ = self.step(u)
             done = all(done)
@@ -137,7 +139,8 @@ class BanditEnvVec(BaseEnv):
         us = np.concatenate(us)
         xps = np.concatenate(xps)
         rs = np.concatenate(rs)
-        return xs, us, xps, rs
+        cs = np.concatenate(cs)
+        return xs, us, xps, rs, cs
 
     def get_arm_value(self, us):
         values = [np.sum(env.means * u) for env, u in zip(self._envs, us)]

@@ -299,10 +299,9 @@ def train():
                 for i in range(params['batch_size']):
                     for idx in range(cg_time[i]):
                         true_actions[i, idx, :] = pre_opt_a[i, :]
-                        true_context[i, idx, -action_dim:] = means[i, 0]
+
                     for idx in range(cg_time[i], horizon):
                         true_actions[i, idx, :] = post_opt_a[i, :]
-                        true_context[i, idx, -action_dim:] = means[i, 1]
 
                 detect_pts = [99]
                 for i in detect_pts:
