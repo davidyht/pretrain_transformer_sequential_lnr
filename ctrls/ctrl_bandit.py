@@ -173,19 +173,19 @@ class BanditTransformerController(Controller):
         states = states.float().to(device)
         self.batch['query_states'] = states
 
-        context_actions = self.batch['context_actions'].cpu().detach().numpy()
-        context_rewards = self.batch['context_rewards'].cpu().detach().numpy().squeeze()
+        # context_actions = self.batch['context_actions'].cpu().detach().numpy()
+        # context_rewards = self.batch['context_rewards'].cpu().detach().numpy().squeeze()
 
-        c = np.zeros((self.batch_size, 2 * self.du))
-        c[:, :self.du] = np.sum(context_actions, axis = 1)
-        for i in range(self.du):
-            num = c[:, :self.du]
-            rew_sum = np.expand_dims(context_rewards, axis=-1) * context_actions
-            rew_sum = np.sum(rew_sum, axis=1)
-            c[:, self.du:] = rew_sum / (num + 1e-6)
+        # c = np.zeros((self.batch_size, 2 * self.du))
+        # c[:, :self.du] = np.sum(context_actions, axis = 1)
 
-        # c = self.extractor(self.batch)
-        # c = c.cpu().detach().numpy()
+        # num = c[:, :self.du]
+        # rew_sum = np.expand_dims(context_rewards, axis=-1) * context_actions
+        # rew_sum = np.sum(rew_sum, axis=1)
+        # c[:, self.du:] = rew_sum / (num + 1e-6)
+
+        c = self.extractor(self.batch)
+        c = c.cpu().detach().numpy()
 
         a = self.trf(self.batch)
         a = a.cpu().detach().numpy()

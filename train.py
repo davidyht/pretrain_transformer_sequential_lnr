@@ -225,8 +225,7 @@ def train():
         test_dataset = Dataset(path = path_test, config = config)
         train_loader0 = torch.utils.data.DataLoader(train_dataset, **params)
         test_loader = torch.utils.data.DataLoader(test_dataset, **params)
-        optimizer1 = torch.optim.AdamW(model1.parameters(), lr=lr, weight_decay=1e-4)
-        optimizer2 = torch.optim.AdamW(model2.parameters(), lr=lr, weight_decay=1e-4)
+        optimizer = torch.optim.AdamW(list(model1.parameters()) + list(model2.parameters()), lr=lr, weight_decay=1e-4)
         loss_fn = torch.nn.CrossEntropyLoss(reduction='sum')
         test_loss = []
         train_loss = []
@@ -299,6 +298,8 @@ def train():
                 for i in range(params['batch_size']):
                     for idx in range(cg_time[i]):
                         true_actions[i, idx, :] = pre_opt_a[i, :]
+                        true_context[i, idx, :dim] = true_context[i, idx, dim:]
+                        true_context[i, idx, :dim] = means[i, :]
 
                     for idx in range(cg_time[i], horizon):
                         true_actions[i, idx, :] = post_opt_a[i, :]
@@ -316,14 +317,11 @@ def train():
                     pred_actions = pred_actions.reshape(-1, action_dim)
                     context_pred = model2(restricted_batch)
                     context_pred = context_pred.reshape(-1, 2 * action_dim)
-                    optimizer1.zero_grad()
-                    optimizer2.zero_grad()
-                    loss1 = loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))
-                    loss2 = loss_fn(context_pred, true_context[:, :i, :].reshape(-1, 2 * action_dim))
-                    loss1.backward()
-                    loss2.backward()
-                    optimizer1.step()
-                    optimizer2.step()
+                    optimizer.zero_grad()
+                    loss = loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim)) + 100 * loss_fn(context_pred, true_context[:, :i, :].reshape(-1, 2 * action_dim))
+                    loss.backward()
+
+                    optimizer.step()
 
                 pred_actions = model1(batch)
                 true_actions = true_actions.reshape(-1, action_dim)
