@@ -298,11 +298,11 @@ def train():
                 for i in range(params['batch_size']):
                     for idx in range(cg_time[i]):
                         true_actions[i, idx, :] = pre_opt_a[i, :]
-                        true_context[i, idx, :dim] = true_context[i, idx, dim:]
-                        true_context[i, idx, :dim] = means[i, :]
+                        true_context[i, idx, :] = means[i, :]
 
                     for idx in range(cg_time[i], horizon):
                         true_actions[i, idx, :] = post_opt_a[i, :]
+                        true_context[i, idx, :] = means[i, :]
 
                 detect_pts = [99]
                 for i in detect_pts:
@@ -316,9 +316,9 @@ def train():
                     pred_actions = model1(restricted_batch)
                     pred_actions = pred_actions.reshape(-1, action_dim)
                     context_pred = model2(restricted_batch)
-                    context_pred = context_pred.reshape(-1, 2 * action_dim)
+                    context_pred = context_pred.reshape(-1, action_dim)
                     optimizer.zero_grad()
-                    loss = loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim)) + 100 * loss_fn(context_pred, true_context[:, :i, :].reshape(-1, 2 * action_dim))
+                    loss = loss_fn(context_pred, true_context[:, :i, :].reshape(-1, action_dim)) + 0.1 * loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))
                     loss.backward()
 
                     optimizer.step()

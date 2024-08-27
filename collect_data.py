@@ -54,7 +54,7 @@ def rollin_bandit(env, cov, exp = True, orig=False):
     for h in range(H):
         ms[h,:] = ms[h,:] / (ns[h] + 1e-6)
     
-    c = np.concatenate((ns, ms), axis = 1) #context
+    c = ms #context
     
     return xs, us, xps, rs, c
 

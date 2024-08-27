@@ -12,6 +12,7 @@ def deploy_online(env, controller, horizon):
     context_actions = torch.zeros((1, horizon, env.du)).float().to(device)
     context_next_states = torch.zeros((1, horizon, env.dx)).float().to(device)
     context_rewards = torch.zeros((1, horizon, 1)).float().to(device)
+    context = torch.zeros((1, horizon, env.du)).float().to(device)
 
     cum_means = []
     for h in range(horizon):
@@ -20,10 +21,11 @@ def deploy_online(env, controller, horizon):
             'context_actions': context_actions[:, :h, :],
             'context_next_states': context_next_states[:, :h, :],
             'context_rewards': context_rewards[:, :h, :],
+            'context': context[:, :h, :],
         }
 
         controller.set_batch(batch)
-        states_lnr, actions_lnr, next_states_lnr, rewards_lnr = env.deploy(
+        states_lnr, actions_lnr, next_states_lnr, rewards_lnr, context_lnr = env.deploy(
             controller)
 
         # Update context variables
@@ -31,6 +33,7 @@ def deploy_online(env, controller, horizon):
         context_actions[0, h, :] = convert_to_tensor(actions_lnr[0])
         context_next_states[0, h, :] = convert_to_tensor(next_states_lnr[0])
         context_rewards[0, h, :] = convert_to_tensor(rewards_lnr[0])
+        context[0, h, :] = convert_to_tensor(context_lnr[0])
 
         actions = actions_lnr.flatten()
         mean = env.get_arm_value(actions)
@@ -48,7 +51,7 @@ def deploy_online_vec(vec_env, controller, horizon, include_meta=False):
     context_actions = np.zeros((num_envs, horizon, vec_env.du))
     context_next_states = np.zeros((num_envs, horizon, vec_env.dx))
     context_rewards = np.zeros((num_envs, horizon, 1))
-    context = np.zeros((num_envs, horizon, 2 * vec_env.du))
+    context = np.zeros((num_envs, horizon, vec_env.du))
 
     cum_means = []
     print("Deploying online vectorized...")
@@ -75,9 +78,7 @@ def deploy_online_vec(vec_env, controller, horizon, include_meta=False):
 
         mean = vec_env.get_arm_value(actions_lnr)
         cum_means.append(mean)
-    print(context_actions[2,:,:])
-    print(context_rewards[2,:,:])
-    print(context[2,:,:])
+
 
     print("Deployed online vectorized")
 

@@ -27,13 +27,15 @@ class BaseEnv(gym.Env):
         acts = []
         next_obs = []
         rews = []
+        cs = []
         done = False
 
         while not done:
-            act = ctrl.act(ob)
+            act, c = ctrl.act(ob)
 
             obs.append(ob)
             acts.append(act)
+            cs.append(c)
 
             ob, rew, done, _ = self.step(act)
 
@@ -44,5 +46,6 @@ class BaseEnv(gym.Env):
         acts = np.array(acts)
         next_obs = np.array(next_obs)
         rews = np.array(rews)
+        cs = np.array(cs)
 
-        return obs, acts, next_obs, rews
+        return obs, acts, next_obs, rews, cs

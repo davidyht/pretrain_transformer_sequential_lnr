@@ -26,12 +26,13 @@ class OptPolicy(Controller):
         return
 
     def act(self, x):
-        return self.env.opt_a
+        c = np.zeros(self.env.dim)
+        return self.env.opt_a, c
 
 
     def act_numpy_vec(self, x):
         opt_as = [ env.opt_a for env in self.env ]
-        c = np.zeros((self.batch_size, 2 * self.env[0].dim))
+        c = np.zeros((self.batch_size, self.env[0].dim))
 
         return np.stack(opt_as, axis=0), c
         # return np.tile(self.env.opt_a, (self.batch_size, 1))
@@ -66,6 +67,7 @@ class UCBPolicy(Controller):
     def act(self, x):
         actions = self.batch['context_actions'].cpu().detach().numpy()[0]
         rewards = self.batch['context_rewards'].cpu().detach().numpy().flatten()
+        context = np.zeros(self.env.dim)
 
         b = np.zeros(self.env.dim)
         counts = np.zeros(self.env.dim)
@@ -84,12 +86,12 @@ class UCBPolicy(Controller):
         a = np.zeros(self.env.dim)
         a[i] = 1.0
         self.a = a
-        return self.a
+        return self.a, context
 
     def act_numpy_vec(self, x):
         actions = self.batch['context_actions']
         rewards = self.batch['context_rewards']
-        context = np.zeros((self.batch_size, 2 * self.env.dim))
+        context = np.zeros((self.batch_size, self.env.dim))
 
         b = np.zeros((self.batch_size, self.env.dim))
         counts = np.zeros((self.batch_size, self.env.dim))
@@ -149,20 +151,21 @@ class BanditTransformerController(Controller):
         states = torch.tensor(x)[None, :].float().to(device)
         self.batch['query_states'] = states
         c = self.extractor(self.batch)
+        c = c.cpu().detach().numpy()
+        c = np.exp(c) / np.sum(np.exp(c))
 
-        self.batch['context'] = c
         a = self.trf(self.batch)
         a = a.cpu().detach().numpy()
 
         if self.sample:
             probs = scipy.special.softmax(a)
-            i = np.random.choice(np.arange(self.du), p=probs)
+            i = np.random.choice(np.arange(self.du), p=probs.squeeze()) 
         else:
             i = np.argmax(a)
 
         a = np.zeros(self.du)
         a[i] = 1.0
-        return a
+        return a, c
 
     def act_numpy_vec(self, x):
         self.batch['zeros'] = self.zeros
@@ -186,6 +189,8 @@ class BanditTransformerController(Controller):
 
         c = self.extractor(self.batch)
         c = c.cpu().detach().numpy()
+        for i in range(self.batch_size):
+            c[i, :] = np.exp(c[i, :]) / np.sum(np.exp(c[i, :]))
 
         a = self.trf(self.batch)
         a = a.cpu().detach().numpy()

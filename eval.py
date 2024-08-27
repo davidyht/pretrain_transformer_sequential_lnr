@@ -207,6 +207,14 @@ if __name__ == '__main__':
         plt.clf()
         plt.cla()
         plt.close()
+
+        means = 0.1 * np.random.randint(3, 9, size=(10, 3))
+        for j in range(10):
+            eval_bandit.online_sample([model1, model2], means = means[j], horizon = horizon, var = var)
+            plt.savefig(f'figs/{evals_filename}/online_sample/{save_filename}_{means[j]}.png')
+            plt.clf()
+            plt.cla()
+            plt.close()
         
         # eval_bandit.offline(eval_trajs, [model1, model2], **config)
         # plt.savefig(f'figs/{evals_filename}/bar/{save_filename}_bar.png')
