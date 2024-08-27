@@ -126,11 +126,10 @@ class UCBPolicy(Controller):
 
 class BanditTransformerController(Controller):
     def __init__(self, model, sample=True,  batch_size=1):
-        self.trf = model[0]
-        self.extractor = model[1]
-        self.du = model[0].config['action_dim']
-        self.dx = model[0].config['state_dim']
-        self.H = model[0].horizon
+        self.model = model
+        self.du = model.config['action_dim']
+        self.dx = model.config['state_dim']
+        self.H = model.horizon
         self.sample = sample
         self.batch_size = batch_size
         self.zeros = torch.zeros(batch_size, 2 * self.dx + 3 * self.du + 1).float().to(device)
@@ -150,11 +149,11 @@ class BanditTransformerController(Controller):
 
         states = torch.tensor(x)[None, :].float().to(device)
         self.batch['query_states'] = states
-        c = self.extractor(self.batch)
+        c = self.model(self.batch)[1]
         c = c.cpu().detach().numpy()
         c = np.exp(c) / np.sum(np.exp(c))
 
-        a = self.trf(self.batch)
+        a = self.model(self.batch)[0]
         a = a.cpu().detach().numpy()
 
         if self.sample:
@@ -187,12 +186,12 @@ class BanditTransformerController(Controller):
         # rew_sum = np.sum(rew_sum, axis=1)
         # c[:, self.du:] = rew_sum / (num + 1e-6)
 
-        c = self.extractor(self.batch)
+        c = self.model(self.batch)[1]
         c = c.cpu().detach().numpy()
         for i in range(self.batch_size):
             c[i, :] = np.exp(c[i, :]) / np.sum(np.exp(c[i, :]))
 
-        a = self.trf(self.batch)
+        a = self.model(self.batch)[0]
         a = a.cpu().detach().numpy()
 
         if self.batch_size == 1:

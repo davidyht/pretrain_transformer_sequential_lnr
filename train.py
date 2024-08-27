@@ -198,8 +198,8 @@ def train():
             'context_len': context_len,
         }
 
-        model1 = Transformer(config).to(device)
-        model2 = Context_extractor(config).to(device)
+        model = Transformer(config).to(device)
+
         params = {
             'batch_size': 100,
             'shuffle': True,
@@ -225,13 +225,13 @@ def train():
         test_dataset = Dataset(path = path_test, config = config)
         train_loader0 = torch.utils.data.DataLoader(train_dataset, **params)
         test_loader = torch.utils.data.DataLoader(test_dataset, **params)
-        optimizer = torch.optim.AdamW(list(model1.parameters()) + list(model2.parameters()), lr=lr, weight_decay=1e-4)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
         loss_fn = torch.nn.CrossEntropyLoss(reduction='sum')
         test_loss = []
         train_loss = []
         printw("Num train batches: " + str(len(train_loader0)))
         printw("Num test batches: " + str(len(test_loader)))
-        start_epoch, model = load_checkpoints(model1, filename)
+        start_epoch, model = load_checkpoints(model, filename)
         if start_epoch == 0:
             printw("Starting from scratch.")
         else:
@@ -262,7 +262,7 @@ def train():
                         for idx in range(cg_time[i], horizon):
                             true_actions[i, idx, :] = post_opt_a[i, :]
 
-                    pred_actions = model1(batch)
+                    pred_actions = model(batch)[0]
                     true_actions = true_actions.reshape(-1, action_dim)
                     pred_actions = pred_actions.reshape(-1, action_dim)
                 
@@ -313,17 +313,17 @@ def train():
                     restricted_batch['context_rewards'] = restricted_batch['context_rewards'][:, :i]
                     restricted_batch['context'] = restricted_batch['context'][:, :i, :]
 
-                    pred_actions = model1(restricted_batch)
+                    pred_actions = model(restricted_batch)[0]
                     pred_actions = pred_actions.reshape(-1, action_dim)
-                    context_pred = model2(restricted_batch)
+                    context_pred = model(restricted_batch)[1]
                     context_pred = context_pred.reshape(-1, action_dim)
                     optimizer.zero_grad()
-                    loss = loss_fn(context_pred, true_context[:, :i, :].reshape(-1, action_dim)) + 0.1 * loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))
+                    loss = loss_fn(context_pred, true_context[:, :i, :].reshape(-1, action_dim)) + 0.001 * loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))
                     loss.backward()
 
                     optimizer.step()
 
-                pred_actions = model1(batch)
+                pred_actions = model(batch)[0]
                 true_actions = true_actions.reshape(-1, action_dim)
                 pred_actions = pred_actions.reshape(-1, action_dim)
                 loss = loss_fn(pred_actions, true_actions)
@@ -334,8 +334,7 @@ def train():
             printw(f"\tTrain time: {end_time - start_time}")
             # LOGGING
             if (epoch + 1) % 20 == 0:
-                torch.save(model1.state_dict(), f'models/{filename}_model1_epoch{epoch+1}.pt')
-                torch.save(model2.state_dict(), f'models/{filename}_model2_epoch{epoch+1}.pt')
+                torch.save(model.state_dict(), f'models/{filename}_epoch{epoch+1}.pt')
 
             # PLOTTING
             if (epoch + 1) % 10 == 0:

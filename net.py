@@ -127,6 +127,6 @@ class Transformer(nn.Module):
         context = self.context_extractor(transformer_outputs['last_hidden_state'])
 
         if self.test:
-            return preds[:, -1, :]
-        return preds[:, 1:, :] 
+            return preds[:, -1, :], context[:, -1, :]
+        return preds[:, 1:, :], context[:, 1:, :]
 
