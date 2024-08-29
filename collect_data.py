@@ -109,9 +109,9 @@ def rollin_cgbandit(env, cov, exp = True, orig=False):
         us.append(u)
         xps.append(xp)
         rs.append(r)
-
+    cs = np.zeros((H, env.dim))
     xs, us, xps, rs = np.array(xs), np.array(us), np.array(xps), np.array(rs)
-    return xs, us, xps, rs
+    return xs, us, xps, rs, cs
 
 def generate_bandit_histories_from_envs(envs, n_hists, n_samples, cov, type):
     trajs = []
@@ -150,6 +150,7 @@ def generate_cgbandit_histories_from_envs(envs, n_hists, n_samples, cov, type):
                 context_actions,
                 context_next_states,
                 context_rewards,
+                context,
             ) = rollin_cgbandit(env, cov=cov)
             for k in range(n_samples):
                 query_state = np.array([1])
@@ -162,6 +163,7 @@ def generate_cgbandit_histories_from_envs(envs, n_hists, n_samples, cov, type):
                     'context_actions': context_actions,
                     'context_next_states': context_next_states,
                     'context_rewards': context_rewards,
+                    'context': context,
                     'means': env.means,
                     'cg_time': env.cg_time,
                 }

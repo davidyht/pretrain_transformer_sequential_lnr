@@ -249,6 +249,8 @@ def train():
                     print(f"Batch {i} of {len(test_loader)}", end='\r')
 
                     batch = {k: v.to(device) for k, v in batch.items()}
+                    true_context = batch['context']
+                    means = batch['means']
                     true_actions = torch.zeros((params['batch_size'], horizon, action_dim)).to(device)
                     pre_opt_a = batch['optimal_actions'][:, 0:dim]
                     post_opt_a = batch['optimal_actions'][:, dim:]
@@ -258,15 +260,31 @@ def train():
 
                     for i in range(params['batch_size']):
                         for idx in range(cg_time[i]):
-                            true_actions[i, idx, :] = pre_opt_a[i, :]
+                            if env == 'bandit':
+                                true_actions[i, idx, :] = pre_opt_a[i, :]
+                                true_context[i, idx, :] = means[i, :]
+                            elif env == 'cgbandit':
+                                true_actions[i, idx, :] = pre_opt_a[i, :]
+                                true_context[i, idx, :] = means[i, 0, :]
+
                         for idx in range(cg_time[i], horizon):
-                            true_actions[i, idx, :] = post_opt_a[i, :]
+                            if env == 'bandit':
+                                true_actions[i, idx, :] = post_opt_a[i, :]
+                                true_context[i, idx, :] = means[i, :]
+                            elif env == 'cgbandit':
+                                true_actions[i, idx, :] = post_opt_a[i, :]
+                                true_context[i, idx, :] = means[i, 1, :]
+
+                    batch['context'] = true_context
 
                     pred_actions = model1(batch)
+                    context_pred = model2(batch)
                     true_actions = true_actions.reshape(-1, action_dim)
+                    true_context = true_context.reshape(-1, action_dim)
                     pred_actions = pred_actions.reshape(-1, action_dim)
+                    context_pred = context_pred.reshape(-1, action_dim)
                 
-                    loss = loss_fn(pred_actions, true_actions)
+                    loss = loss_fn(pred_actions, true_actions) + loss_fn(context_pred, true_context)
                     epoch_test_loss += loss.item() / horizon
             test_loss.append(epoch_test_loss / len(test_dataset))
             end_time = time.time()
@@ -297,12 +315,20 @@ def train():
 
                 for i in range(params['batch_size']):
                     for idx in range(cg_time[i]):
-                        true_actions[i, idx, :] = pre_opt_a[i, :]
-                        true_context[i, idx, :] = means[i, :]
+                        if env == 'bandit':
+                            true_actions[i, idx, :] = pre_opt_a[i, :]
+                            true_context[i, idx, :] = means[i, :]
+                        elif env == 'cgbandit':
+                            true_actions[i, idx, :] = pre_opt_a[i, :]
+                            true_context[i, idx, :] = means[i, 0, :]
 
                     for idx in range(cg_time[i], horizon):
-                        true_actions[i, idx, :] = post_opt_a[i, :]
-                        true_context[i, idx, :] = means[i, :]
+                        if env == 'bandit':
+                            true_actions[i, idx, :] = post_opt_a[i, :]
+                            true_context[i, idx, :] = means[i, :]
+                        elif env == 'cgbandit':
+                            true_actions[i, idx, :] = post_opt_a[i, :]
+                            true_context[i, idx, :] = means[i, 1, :]
 
                 detect_pts = [99]
                 for i in detect_pts:
@@ -313,20 +339,25 @@ def train():
                     restricted_batch['context_rewards'] = restricted_batch['context_rewards'][:, :i]
                     restricted_batch['context'] = restricted_batch['context'][:, :i, :]
 
+                    context_pred = model2(restricted_batch)
+                    restricted_batch['context'] = context_pred
+                    context_pred = context_pred.reshape(-1, action_dim)
                     pred_actions = model1(restricted_batch)
                     pred_actions = pred_actions.reshape(-1, action_dim)
-                    context_pred = model2(restricted_batch)
-                    context_pred = context_pred.reshape(-1, action_dim)
                     optimizer.zero_grad()
-                    loss = loss_fn(context_pred, true_context[:, :i, :].reshape(-1, action_dim)) + 0.1 * loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))
+                    loss = loss_fn(context_pred, true_context[:, :i, :].reshape(-1, action_dim)) + loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))
                     loss.backward()
 
                     optimizer.step()
 
                 pred_actions = model1(batch)
+                context_pred = model2(batch)
+                true_context = true_context.reshape(-1, action_dim)
                 true_actions = true_actions.reshape(-1, action_dim)
+
+                context_pred = context_pred.reshape(-1, action_dim)
                 pred_actions = pred_actions.reshape(-1, action_dim)
-                loss = loss_fn(pred_actions, true_actions)
+                loss = loss_fn(pred_actions, true_actions) + loss_fn(context_pred, true_context)
                 epoch_train_loss += loss.item() / horizon
             train_loss.append(epoch_train_loss / len(train_loader.dataset))
             end_time = time.time()
