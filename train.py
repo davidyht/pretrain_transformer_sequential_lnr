@@ -249,6 +249,7 @@ def train():
                     print(f"Batch {i} of {len(test_loader)}", end='\r')
 
                     batch = {k: v.to(device) for k, v in batch.items()}
+                    means = batch['means']
                     true_context = batch['context']
                     true_actions = torch.zeros((params['batch_size'], horizon, action_dim)).to(device)
                     pre_opt_a = batch['optimal_actions'][:, 0:dim]
@@ -275,8 +276,10 @@ def train():
                                 true_context[i, idx, :] = means[i, 0, :]
                             true_actions[i, idx, :] = post_opt_a[i, :]
 
-                    pred_actions = model1(batch)
                     context_pred = model2(batch)
+                    batch['context'] = context_pred
+                    pred_actions = model1(batch)
+                    
                     true_actions = true_actions.reshape(-1, action_dim)
                     true_context = true_context.reshape(-1, action_dim)
                     pred_actions = pred_actions.reshape(-1, action_dim)
@@ -311,13 +314,24 @@ def train():
                 cg_time = [int(t) for t in cg_time]  # turn into iterable list
                 context_return = batch['context_rewards']
 
-                for idx in range(cg_time[i], horizon):
-                    if env == 'bandit':
+                for i in range(params['batch_size']):
+                    for idx in range(cg_time[i]):
+                        if env == 'bandit':
+                            true_actions[i, idx, :] = pre_opt_a[i, :]
+                            true_context[i, idx, :] = means[i, :]
+                        elif env == 'cgbandit':
+                            true_actions[i, idx, :] = pre_opt_a[i, :]
+                            true_context[i, idx, :] = means[i, 0, :]
+                        
+                    for idx in range(cg_time[i], horizon):
+                        if env == 'bandit':
+                            true_actions[i, idx, :] = post_opt_a[i, :]
+                            true_context[i, idx, :] = means[i, :]
+                        elif env == 'cgbandit': 
+                            true_actions[i, idx, :] = post_opt_a[i, :]
+                            true_context[i, idx, :] = means[i, 0, :]
                         true_actions[i, idx, :] = post_opt_a[i, :]
-                        true_context[i, idx, :] = means[i, :]
-                    elif env == 'cgbandit': 
-                        true_actions[i, idx, :] = post_opt_a[i, :]
-                        true_context[i, idx, :] = means[i, 0, :]
+                
 
                 detect_pts = [99]
                 for i in detect_pts:
@@ -328,9 +342,10 @@ def train():
                     restricted_batch['context_rewards'] = restricted_batch['context_rewards'][:, :i]
                     restricted_batch['context'] = restricted_batch['context'][:, :i, :]
 
+                    context_pred = model2(restricted_batch)
+                    batch['context'] = context_pred
                     pred_actions = model1(restricted_batch)
                     pred_actions = pred_actions.reshape(-1, action_dim)
-                    context_pred = model2(restricted_batch)
                     context_pred = context_pred.reshape(-1, action_dim)
                     optimizer.zero_grad()
                     loss = loss_fn(context_pred, true_context[:, :i, :].reshape(-1, action_dim)) + loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))

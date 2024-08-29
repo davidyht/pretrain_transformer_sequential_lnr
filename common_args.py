@@ -34,7 +34,7 @@ def add_dataset_args(parser):
 
 def add_model_args(parser):
     parser.add_argument("--embd", type=int, required=False,
-                        default=8, help="Embedding size")
+                        default=32, help="Embedding size")
     parser.add_argument("--head", type=int, required=False,
                         default=4, help="Number of heads")
     parser.add_argument("--layer", type=int, required=False,
