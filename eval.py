@@ -111,25 +111,21 @@ if __name__ == '__main__':
 
     # Load network from saved file.
     # By default, load the final file, otherwise load specified epoch.
-    model1 = Transformer(config).to(device)
-    model2 = Context_extractor(config).to(device)  
+    model = Transformer(config).to(device)
     
     tmp_filename = filename
 
     if epoch < 0:
-        model_path1 = f'models/{tmp_filename}_model1.pt'
-        model_path2 = f'models/{tmp_filename}_model2.pt'
+        model_path = f'models/{tmp_filename}.pt'
     else:
-        model_path1 = f'models/{tmp_filename}_model1_epoch{epoch}.pt'
-        model_path2 = f'models/{tmp_filename}_model2_epoch{epoch}.pt'
+        model_path = f'models/{tmp_filename}_epoch{epoch}.pt'
 
     
-    checkpoint1 = torch.load(model_path1, map_location=device)
-    checkpoint2 = torch.load(model_path2, map_location=device)
-    model1.load_state_dict(checkpoint1)
-    model1.eval()
-    model2.load_state_dict(checkpoint2)
-    model2.eval()
+    checkpoint = torch.load(model_path, map_location=device)
+
+    model.load_state_dict(checkpoint)
+    model.eval()
+
 
     dataset_config = {
         'horizon': horizon,
@@ -178,12 +174,17 @@ if __name__ == '__main__':
             'n_eval': n_eval,
         }
 
+<<<<<<< HEAD
         eval_cgbandit.cg_online(eval_trajs, [model1, model2], **config)
+=======
+        eval_cgbandit.cg_online(eval_trajs, model, **config)
+>>>>>>> Multi-output
         plt.savefig(f'figs/{evals_filename}/online/{save_filename}.png')
         plt.clf()
         plt.cla()
         plt.close()
 
+<<<<<<< HEAD
         means = 0.1 * np.random.randint(3, 9, size=(10,2,3))
         cg_time = np.random.randint(10, 30, size = 10)
         for j in range(10):
@@ -192,6 +193,13 @@ if __name__ == '__main__':
             plt.clf()
             plt.cla()
             plt.close()
+=======
+        eval_cgbandit.cg_sample_online(model, horizon, var, means = np.array(([0.2,0.4,0.6],[0.9,0.7,0.6])), cg_time =20)
+        plt.savefig(f'figs/{evals_filename}/online_sample/{save_filename}.png')
+        plt.clf()
+        plt.cla()
+        plt.close()
+>>>>>>> Multi-output
 
         # eval_cgbandit.cg_offline_graph(eval_trajs, model, **config)
         # plt.savefig(f'figs/{evals_filename}/graph/{save_filename}_graph.png')
@@ -205,7 +213,7 @@ if __name__ == '__main__':
             'bandit_type': bandit_type,
         }
         
-        eval_bandit.online(eval_trajs, [model1, model2], **config)
+        eval_bandit.online(eval_trajs, model, **config)
         plt.savefig(f'figs/{evals_filename}/online/{save_filename}.png')
         plt.clf()
         plt.cla()
@@ -213,7 +221,7 @@ if __name__ == '__main__':
 
         means = 0.1 * np.random.randint(3, 9, size=(10, 3))
         for j in range(10):
-            eval_bandit.online_sample([model1, model2], means = means[j], horizon = horizon, var = var)
+            eval_bandit.online_sample(model, means = means[j], horizon = horizon, var = var)
             plt.savefig(f'figs/{evals_filename}/online_sample/{save_filename}_{means[j]}.png')
             plt.clf()
             plt.cla()

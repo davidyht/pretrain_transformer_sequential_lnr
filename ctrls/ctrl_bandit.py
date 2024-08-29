@@ -26,13 +26,13 @@ class OptPolicy(Controller):
         return
 
     def act(self, x):
-        c = np.zeros(self.env.dim)
+        c = np.zeros(2 * self.env.dim)
         return self.env.opt_a, c
 
 
     def act_numpy_vec(self, x):
         opt_as = [ env.opt_a for env in self.env ]
-        c = np.zeros((self.batch_size, self.env[0].dim))
+        c = np.zeros((self.batch_size, 2 * self.env[0].dim))
 
         return np.stack(opt_as, axis=0), c
         # return np.tile(self.env.opt_a, (self.batch_size, 1))
@@ -67,7 +67,7 @@ class UCBPolicy(Controller):
     def act(self, x):
         actions = self.batch['context_actions'].cpu().detach().numpy()[0]
         rewards = self.batch['context_rewards'].cpu().detach().numpy().flatten()
-        context = np.zeros(self.env.dim)
+        context = np.zeros(2 * self.env.dim)
 
         b = np.zeros(self.env.dim)
         counts = np.zeros(self.env.dim)
@@ -91,7 +91,7 @@ class UCBPolicy(Controller):
     def act_numpy_vec(self, x):
         actions = self.batch['context_actions']
         rewards = self.batch['context_rewards']
-        context = np.zeros((self.batch_size, self.env.dim))
+        context = np.zeros((self.batch_size, 2 * self.env.dim))
 
         b = np.zeros((self.batch_size, self.env.dim))
         counts = np.zeros((self.batch_size, self.env.dim))
@@ -126,11 +126,10 @@ class UCBPolicy(Controller):
 
 class BanditTransformerController(Controller):
     def __init__(self, model, sample=True,  batch_size=1):
-        self.trf = model[0]
-        self.extractor = model[1]
-        self.du = model[0].config['action_dim']
-        self.dx = model[0].config['state_dim']
-        self.H = model[0].horizon
+        self.model = model
+        self.du = model.config['action_dim']
+        self.dx = model.config['state_dim']
+        self.H = model.horizon
         self.sample = sample
         self.batch_size = batch_size
         self.zeros = torch.zeros(batch_size, 2 * self.dx + 3 * self.du + 1).float().to(device)
@@ -150,11 +149,11 @@ class BanditTransformerController(Controller):
 
         states = torch.tensor(x)[None, :].float().to(device)
         self.batch['query_states'] = states
-        c = self.extractor(self.batch)
+        c = self.model(self.batch)[1]
         c = c.cpu().detach().numpy()
         c = np.exp(c) / np.sum(np.exp(c))
 
-        a = self.trf(self.batch)
+        a = self.model(self.batch)[0]
         a = a.cpu().detach().numpy()
 
         if self.sample:
@@ -187,12 +186,13 @@ class BanditTransformerController(Controller):
         # rew_sum = np.sum(rew_sum, axis=1)
         # c[:, self.du:] = rew_sum / (num + 1e-6)
 
-        c = self.extractor(self.batch)
+        c = self.model(self.batch)[1]
+        # print(c.shape)
         c = c.cpu().detach().numpy()
         for i in range(self.batch_size):
             c[i, :] = np.exp(c[i, :]) / np.sum(np.exp(c[i, :]))
 
-        a = self.trf(self.batch)
+        a = self.model(self.batch)[0]
         a = a.cpu().detach().numpy()
 
         if self.batch_size == 1:

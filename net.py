@@ -37,7 +37,7 @@ class Context_extractor(nn.Module):
 
         self.embed_transition = nn.Linear(
             2 * self.state_dim + self.action_dim + 1, self.n_embd)
-        self.pred_context = nn.Linear(self.n_embd, self.action_dim)
+        self.pred_context = nn.Linear(self.n_embd, 2 * self.action_dim)
 
     def forward(self, x):
         query_states = x['query_states'][:, None, :]
@@ -97,9 +97,9 @@ class Transformer(nn.Module):
         # Set position embeddings to zero self.transformer.wte.weight.data.fill_(0)
 
         self.embed_transition = nn.Linear(
-            2 * self.state_dim + 2 * self.action_dim + 1, self.n_embd)
+            2 * self.state_dim + 3 * self.action_dim + 1, self.n_embd)
         self.pred_actions = nn.Linear(self.n_embd, self.action_dim)
-        self.context_extractor = nn.Linear(self.n_embd, self.action_dim)
+        self.context_extractor = nn.Linear(self.n_embd, 2 * self.action_dim)
 
     def forward(self, x):
         query_states = x['query_states'][:, None, :]
@@ -114,7 +114,7 @@ class Transformer(nn.Module):
             [zeros[:, :, :self.state_dim], x['context_next_states'][:, :, :]], dim=1)
         reward_seq = torch.cat([zeros[:, :, :1], x['context_rewards'][:, :, :]], dim=1)
 
-        context_seq = torch.cat([zeros[:,:,:self.action_dim], x['context'][:,:,:]], dim = 1)
+        context_seq = torch.cat([zeros[:,:,:2 * self.action_dim], x['context'][:,:,:]], dim = 1)
 
 
         # rep_seq = torch.cat([zeros[:, :, :self.rep_dim], x['context_reps'][:, :, :]], dim=1)
@@ -127,6 +127,6 @@ class Transformer(nn.Module):
         context = self.context_extractor(transformer_outputs['last_hidden_state'])
 
         if self.test:
-            return preds[:, -1, :]
-        return preds[:, 1:, :] 
+            return preds[:, -1, :], context[:, -1, :]
+        return preds[:, 1:, :], context[:, 1:, :]
 

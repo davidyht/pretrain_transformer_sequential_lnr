@@ -12,7 +12,7 @@ def deploy_online(env, controller, horizon):
     context_actions = torch.zeros((1, horizon, env.du)).float().to(device)
     context_next_states = torch.zeros((1, horizon, env.dx)).float().to(device)
     context_rewards = torch.zeros((1, horizon, 1)).float().to(device)
-    context = torch.zeros((1, horizon, env.du)).float().to(device)
+    context = torch.zeros((1, horizon, 2 * env.du)).float().to(device)
 
     cum_means = []
     for h in range(horizon):
@@ -51,7 +51,7 @@ def deploy_online_vec(vec_env, controller, horizon, include_meta=False):
     context_actions = np.zeros((num_envs, horizon, vec_env.du))
     context_next_states = np.zeros((num_envs, horizon, vec_env.dx))
     context_rewards = np.zeros((num_envs, horizon, 1))
-    context = np.zeros((num_envs, horizon, vec_env.du))
+    context = np.zeros((num_envs, horizon, 2 * vec_env.du))
 
     cum_means = []
     print("Deploying online vectorized...")
@@ -68,7 +68,7 @@ def deploy_online_vec(vec_env, controller, horizon, include_meta=False):
 
         states_lnr, actions_lnr, next_states_lnr, rewards_lnr, context_lnr = vec_env.deploy(
             controller)
-        
+ 
         # Update context variables
         context_states[:, h, :] = states_lnr
         context_actions[:, h, :] = actions_lnr

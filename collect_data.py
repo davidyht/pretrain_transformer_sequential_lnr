@@ -14,6 +14,7 @@ from utils import build_data_filename, build_merge_data_filename
 def rollin_bandit(env, cov, exp = True, orig=False):
     H = env.H
     opt_a_index = env.opt_a_index
+    means = env.means
     xs, us, xps, rs = [], [], [], []
     if cov == None:
         cov = np.random.choice([0.0, .1, .2, .3, .4, .5, .6, .7, .8, .9, 1.0])
@@ -48,13 +49,8 @@ def rollin_bandit(env, cov, exp = True, orig=False):
     xs, us, xps, rs = np.array(xs), np.array(us), np.array(xps), np.array(rs)
     ns = np.cumsum(us, axis = 0) # number of times each arm is pulled
     ms = np.zeros((H, env.dim))# number of current mean
-    for h in range(H):
-        ms[h, :] = rs[h] * us[h,:]
-    ms = np.cumsum(ms, axis = 0)
-    for h in range(H):
-        ms[h,:] = ms[h,:] / (ns[h] + 1e-6)
-    
-    c = ms #context
+    ms = np.tile(means, (H, 1))
+    c = np.concatenate((ns, ms), axis = 1) #context
     
     return xs, us, xps, rs, c
 
