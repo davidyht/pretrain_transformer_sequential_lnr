@@ -332,35 +332,20 @@ def train():
                             true_context[i, idx, :] = means[i, 0, :]
                         true_actions[i, idx, :] = post_opt_a[i, :]
                 
-
-                detect_pts = [99]
-                for i in detect_pts:
-                    restricted_batch = batch.copy()
-                    restricted_batch['context_states'] = restricted_batch['context_states'][:, :i, :]
-                    restricted_batch['context_actions'] = restricted_batch['context_actions'][:, :i, :]
-                    restricted_batch['context_next_states'] = restricted_batch['context_next_states'][:, :i, :]
-                    restricted_batch['context_rewards'] = restricted_batch['context_rewards'][:, :i]
-                    restricted_batch['context'] = restricted_batch['context'][:, :i, :]
-
-                    context_pred = model2(restricted_batch)
-                    batch['context'] = context_pred
-                    pred_actions = model1(restricted_batch)
-                    pred_actions = pred_actions.reshape(-1, action_dim)
-                    context_pred = context_pred.reshape(-1, action_dim)
-                    optimizer.zero_grad()
-                    loss = loss_fn(context_pred, true_context[:, :i, :].reshape(-1, action_dim)) + loss_fn(pred_actions, true_actions[:, :i, :].reshape(-1, action_dim))
-                    loss.backward()
-
-                    optimizer.step()
-
-                pred_actions = model1(batch)
                 context_pred = model2(batch)
-                true_actions = true_actions.reshape(-1, action_dim)
-                true_context = true_context.reshape(-1, action_dim)
+                batch['context'] = context_pred
+                pred_actions = model1(batch)
                 pred_actions = pred_actions.reshape(-1, action_dim)
                 context_pred = context_pred.reshape(-1, action_dim)
-                loss = loss_fn(pred_actions, true_actions) + loss_fn(context_pred, true_context)
+                true_context = true_context.reshape(-1, action_dim)
+                true_actions = true_actions.reshape(-1, action_dim)
+                optimizer.zero_grad()
+                loss = loss_fn(context_pred, true_context) + loss_fn(pred_actions, true_actions)
+                loss.backward()
                 epoch_train_loss += loss.item() / horizon
+
+                optimizer.step()
+                
             train_loss.append(epoch_train_loss / len(train_loader.dataset))
             end_time = time.time()
             printw(f"\tTrain loss: {train_loss[-1]}")
