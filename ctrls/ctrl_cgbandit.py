@@ -15,16 +15,18 @@ class OptCgPolicy(Controller):
 
     def act(self, x):
         opt_a = self.env.get_opt_arm()
+        context = np.zeros(self.env.dim)
         
-        return opt_a
+        return opt_a, context
 
 
     def act_numpy_vec(self, x):
         opt_as = [ env.get_opt_arm() for env in self.env ]
+        context = np.zeros((self.batch_size, self.env[0].dim))
         for idx in range(len(self.env)):
             self.env[idx].current_step += 1
 
-        return np.stack(opt_as, axis=0)
+        return np.stack(opt_as, axis=0), context
     
 class SlidingWindow(Controller):
     def __init__(self, env, window_len = 30, const = 1.0, batch_size=1):
@@ -41,6 +43,7 @@ class SlidingWindow(Controller):
     def act(self, x):
         actions = self.batch['context_actions'].cpu().detach().numpy()[0][-self.window_len:]
         rewards = self.batch['context_rewards'].cpu().detach().numpy().flatten()[-self.window_len:]
+        context = np.zeros(self.env.dim)
 
         b = np.zeros(self.env.dim)
         counts = np.zeros(self.env.dim)
@@ -59,11 +62,12 @@ class SlidingWindow(Controller):
         a = np.zeros(self.env.dim)
         a[i] = 1.0
         self.a = a
-        return self.a
+        return self.a, context
     
     def act_numpy_vec(self, x):
         actions = self.batch['context_actions'][:,-self.window_len:,:]
         rewards = self.batch['context_rewards'][:,-self.window_len:,:]
+        context = np.zeros((self.batch_size, self.env.dim))
 
         b = np.zeros((self.batch_size, self.env.dim))
         counts = np.zeros((self.batch_size, self.env.dim))
@@ -93,7 +97,7 @@ class SlidingWindow(Controller):
         a = np.zeros((self.batch_size, self.env.dim))
         a[np.arange(self.batch_size), i] = 1.0
         self.a = a
-        return self.a
+        return self.a, context
     
 class Exp3(Controller):
     def __init__(self, env, eta = 0.5, batch_size = 1) -> None:
