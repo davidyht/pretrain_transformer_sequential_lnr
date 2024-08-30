@@ -1,7 +1,7 @@
 
 def add_dataset_args(parser):
     parser.add_argument("--envs", type=int, required=False,
-                        default=1000, help="Envs")
+                        default=10000, help="Envs")
     parser.add_argument("--envs_eval", type=int, required=False,
                         default=100, help="Eval Envs")
     parser.add_argument("--hists", type=int, required=False,
@@ -41,7 +41,7 @@ def add_model_args(parser):
                         default=4, help="Number of layers")
     parser.add_argument("--context_len", type=int, required=False, default = 100, help = "Context length of transformer")
     parser.add_argument("--lr", type=float, required=False,
-                        default=1e-4, help="Learning Rate")
+                        default=5e-3, help="Learning Rate")
     parser.add_argument("--dropout", type=float,
                         required=False, default=0.2, help="Dropout")
     parser.add_argument('--shuffle', required = False, default=False, action='store_true')
@@ -50,13 +50,13 @@ def add_model_args(parser):
 
 def add_train_args(parser):
     parser.add_argument("--num_epochs", type=int, required=False,
-                        default=20, help="Number of epochs")
+                        default=100, help="Number of epochs")
     parser.add_argument("--gamma", type=float, required=False,default=0.99, help="Discount factor")
 
 
 def add_eval_args(parser):
     parser.add_argument("--epoch", type=int, required=False,
-                        default=20, help="Epoch to evaluate")
+                        default=200, help="Epoch to evaluate")
     parser.add_argument("--test_cov", type=float,
                         required=False, default=-1.0,
                         help="Test coverage (for bandit)")
