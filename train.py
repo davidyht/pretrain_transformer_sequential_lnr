@@ -225,10 +225,15 @@ def train():
         test_dataset = Dataset(path = path_test, config = config)
         train_loader0 = torch.utils.data.DataLoader(train_dataset, **params)
         test_loader = torch.utils.data.DataLoader(test_dataset, **params)
-        optimizer = torch.optim.AdamW(list(model1.parameters()) + list(model2.parameters()), lr=lr, weight_decay=1e-4)
+        optimizer1 = torch.optim.AdamW(model1.parameters(), lr=lr, weight_decay=1e-4)
+        optimizer2 = torch.optim.AdamW(model2.parameters(), lr=lr * 100, weight_decay=1e-4)
         loss_fn = torch.nn.CrossEntropyLoss(reduction='sum')
         test_loss = []
         train_loss = []
+        test_act_loss = []
+        test_context_loss = []
+        train_act_loss = []
+        train_context_loss = []
         printw("Num train batches: " + str(len(train_loader0)))
         printw("Num test batches: " + str(len(test_loader)))
         start_epoch, model = load_checkpoints(model1, filename)
@@ -245,6 +250,8 @@ def train():
             start_time = time.time()
             with torch.no_grad():
                 epoch_test_loss = 0.0
+                epoch_test_act_loss = 0.0
+                epoch_test_context_loss = 0.0
                 for i, batch in enumerate(test_loader):
                     print(f"Batch {i} of {len(test_loader)}", end='\r')
 
@@ -273,26 +280,34 @@ def train():
                                 true_context[i, idx, :] = means[i, :]
                             elif env == 'cgbandit': 
                                 true_actions[i, idx, :] = post_opt_a[i, :]
-                                true_context[i, idx, :] = means[i, 0, :]
-                            true_actions[i, idx, :] = post_opt_a[i, :]
+                                true_context[i, idx, :] = means[i, 1, :]
 
                     context_pred = model2(batch)
-                    batch['context'] = context_pred
+                    batch['context'] = context_pred.detach()
                     pred_actions = model1(batch)
                     
                     true_actions = true_actions.reshape(-1, action_dim)
                     true_context = true_context.reshape(-1, action_dim)
                     pred_actions = pred_actions.reshape(-1, action_dim)
                     context_pred = context_pred.reshape(-1, action_dim)
-                
-                    loss = loss_fn(pred_actions, true_actions) + loss_fn(context_pred, true_context)
+                    loss1 = loss_fn(pred_actions, true_actions)
+                    loss2 = loss_fn(context_pred, true_context)
+                    loss = loss1 + loss2
                     epoch_test_loss += loss.item() / horizon
+                    epoch_test_act_loss += loss1.item() / horizon
+                    epoch_test_context_loss += loss2.item() / horizon
             test_loss.append(epoch_test_loss / len(test_dataset))
+            test_act_loss.append(epoch_test_act_loss / len(test_dataset))
+            test_context_loss.append(epoch_test_context_loss / len(test_dataset))
             end_time = time.time()
             printw(f"\tTest loss: {test_loss[-1]}")
+            printw(f"\t Test Action loss: {test_act_loss[-1]}")
+            printw(f"\t Test Context loss: {test_context_loss[-1]}")
             printw(f"\tEval time: {end_time - start_time}")
             # TRAINING
             epoch_train_loss = 0.0
+            epoch_train_act_loss = 0.0
+            epoch_train_context_loss = 0.0
             start_time = time.time()
 
 #            if epoch % 10 == 0:
@@ -329,26 +344,36 @@ def train():
                             true_context[i, idx, :] = means[i, :]
                         elif env == 'cgbandit': 
                             true_actions[i, idx, :] = post_opt_a[i, :]
-                            true_context[i, idx, :] = means[i, 0, :]
-                        true_actions[i, idx, :] = post_opt_a[i, :]
+                            true_context[i, idx, :] = means[i, 1, :]
                 
                 context_pred = model2(batch)
-                batch['context'] = context_pred
+                batch['context'] = context_pred.detach()
                 pred_actions = model1(batch)
                 pred_actions = pred_actions.reshape(-1, action_dim)
                 context_pred = context_pred.reshape(-1, action_dim)
                 true_context = true_context.reshape(-1, action_dim)
                 true_actions = true_actions.reshape(-1, action_dim)
-                optimizer.zero_grad()
-                loss = loss_fn(context_pred, true_context) + loss_fn(pred_actions, true_actions)
-                loss.backward()
+                optimizer1.zero_grad()
+                optimizer2.zero_grad()
+                loss1 = loss_fn(context_pred, true_context)
+                loss2 = loss_fn(pred_actions, true_actions)
+                loss = loss1 + loss2
+                loss1.backward()
+                loss2.backward()
                 epoch_train_loss += loss.item() / horizon
+                epoch_train_act_loss += loss2.item() / horizon
+                epoch_train_context_loss += loss1.item() / horizon
 
-                optimizer.step()
-                
+                optimizer1.step()
+                optimizer2.step()
+
             train_loss.append(epoch_train_loss / len(train_loader.dataset))
+            train_act_loss.append(epoch_train_act_loss / len(train_loader.dataset))
+            train_context_loss.append(epoch_train_context_loss / len(train_loader.dataset))
             end_time = time.time()
             printw(f"\tTrain loss: {train_loss[-1]}")
+            printw(f"\t Train Action loss: {train_act_loss[-1]}")
+            printw(f"\t Train Context loss: {train_context_loss[-1]}")
             printw(f"\tTrain time: {end_time - start_time}")
             # LOGGING
             if (epoch + 1) % 20 == 0:
