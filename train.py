@@ -225,8 +225,8 @@ def train():
         test_dataset = Dataset(path = path_test, config = config)
         train_loader0 = torch.utils.data.DataLoader(train_dataset, **params)
         test_loader = torch.utils.data.DataLoader(test_dataset, **params)
-        optimizer1 = torch.optim.AdamW(model1.parameters(), lr=lr, weight_decay=1e-4)
-        optimizer2 = torch.optim.AdamW(model2.parameters(), lr=lr * 100, weight_decay=1e-4)
+        optimizer = torch.optim.AdamW(list(model1.parameters()) + list(model2.parameters()), lr=lr, weight_decay=1e-4)
+
         loss_fn = torch.nn.CrossEntropyLoss(reduction='sum')
         test_loss = []
         train_loss = []
@@ -283,7 +283,7 @@ def train():
                                 true_context[i, idx, :] = means[i, 1, :]
 
                     context_pred = model2(batch)
-                    batch['context'] = context_pred.detach()
+                    batch['context'] = context_pred
                     pred_actions = model1(batch)
                     
                     true_actions = true_actions.reshape(-1, action_dim)
@@ -347,25 +347,24 @@ def train():
                             true_context[i, idx, :] = means[i, 1, :]
                 
                 context_pred = model2(batch)
-                batch['context'] = context_pred.detach()
+                batch['context'] = context_pred
                 pred_actions = model1(batch)
                 pred_actions = pred_actions.reshape(-1, action_dim)
                 context_pred = context_pred.reshape(-1, action_dim)
                 true_context = true_context.reshape(-1, action_dim)
                 true_actions = true_actions.reshape(-1, action_dim)
-                optimizer1.zero_grad()
-                optimizer2.zero_grad()
+                optimizer.zero_grad()
                 loss1 = loss_fn(context_pred, true_context)
                 loss2 = loss_fn(pred_actions, true_actions)
                 loss = loss1 + loss2
-                loss1.backward()
+                # loss1.backward()
                 loss2.backward()
                 epoch_train_loss += loss.item() / horizon
                 epoch_train_act_loss += loss2.item() / horizon
                 epoch_train_context_loss += loss1.item() / horizon
 
-                optimizer1.step()
-                optimizer2.step()
+                optimizer.step()
+
 
             train_loss.append(epoch_train_loss / len(train_loader.dataset))
             train_act_loss.append(epoch_train_act_loss / len(train_loader.dataset))
