@@ -108,7 +108,7 @@ class CgbanditEnv(BaseEnv):
         Returns:
             float: The value of the selected arm.
         """
-        if self.current_step >= self.cg_time:
+        if self.current_step >= self.cg_time + 1:
             return np.sum(self.post_means * u)
         else:
             return np.sum(self.pre_means * u)

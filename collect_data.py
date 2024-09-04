@@ -109,8 +109,25 @@ def rollin_cgbandit(env, cov, exp = True, orig=False):
         us.append(u)
         xps.append(xp)
         rs.append(r)
-    cs = np.zeros((H, env.dim))
+
     xs, us, xps, rs = np.array(xs), np.array(us), np.array(xps), np.array(rs)
+    ns1 = np.cumsum(us[:T], axis = 0)
+    ns2 = np.cumsum(us[T:], axis = 0)
+    ms1 = np.zeros((T, env.dim))
+    ms2 = np.zeros((H-T, env.dim))
+
+    for h in range(T):
+        ms1[h, :] = rs[h] * us[h,:]
+    for h in range(T,H):
+        ms2[h-T, :] = rs[h] * us[h,:]
+    ms1 = np.cumsum(ms1, axis = 0)
+    ms2 = np.cumsum(ms2, axis = 0)
+    for h in range(T):
+        ms1[h,:] = ms1[h,:] / (ns1[h] + 1e-6)
+    for h in range(T,H):
+        ms2[h-T,:] = ms2[h-T,:] / (ns2[h-T] + 1e-6)
+    ms = np.concatenate((ms1, ms2), axis=0)
+    cs = ms #context
     return xs, us, xps, rs, cs
 
 def generate_bandit_histories_from_envs(envs, n_hists, n_samples, cov, type):

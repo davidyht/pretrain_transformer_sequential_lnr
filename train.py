@@ -244,6 +244,7 @@ def train():
         
         threshold = 1.0
         train_loader = train_loader0
+
         for epoch in range(start_epoch, num_epochs):
             # EVALUATION
             printw(f"Epoch: {epoch + 1}")
@@ -283,7 +284,7 @@ def train():
                                 true_context[i, idx, :] = means[i, 1, :]
 
                     context_pred = model2(batch)
-                    batch['context'] = context_pred
+                    batch['context'] = context_pred.detach()
                     pred_actions = model1(batch)
                     
                     true_actions = true_actions.reshape(-1, action_dim)
@@ -347,7 +348,7 @@ def train():
                             true_context[i, idx, :] = means[i, 1, :]
                 
                 context_pred = model2(batch)
-                batch['context'] = context_pred
+                batch['context'] = context_pred.detach()
                 pred_actions = model1(batch)
                 pred_actions = pred_actions.reshape(-1, action_dim)
                 context_pred = context_pred.reshape(-1, action_dim)
@@ -357,8 +358,10 @@ def train():
                 loss1 = loss_fn(context_pred, true_context)
                 loss2 = loss_fn(pred_actions, true_actions)
                 loss = loss1 + loss2
-                # loss1.backward()
-                loss2.backward()
+                if epoch <= num_epochs // 2:
+                    loss1.backward()
+                else:
+                    loss2.backward()
                 epoch_train_loss += loss.item() / horizon
                 epoch_train_act_loss += loss2.item() / horizon
                 epoch_train_context_loss += loss1.item() / horizon
